@@ -3,6 +3,7 @@
 
 #include "MemoryManager.h"
 #include <cstdint>
+#include "Opcode.h"
 
 class CPU {
 private:
