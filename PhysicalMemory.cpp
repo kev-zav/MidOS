@@ -1,7 +1,7 @@
 #include "PhysicalMemory.h"
 #include <iostream>
 
-// Constructor - creates memory of given size
+// Constructor: creates memory of given size
 PhysicalMemory::PhysicalMemory(int size) {
     memory.resize(size, 0);  // Create memory array, initialize all to 0
 }

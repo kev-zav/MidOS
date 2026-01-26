@@ -16,7 +16,7 @@ public:
     
     int32_t readInt(int address);           // Read 4 bytes as an integer
     void writeInt(int address, int32_t value); // Write 4 bytes
-    
+     
     int getSize();  // Get total memory size
 };
 

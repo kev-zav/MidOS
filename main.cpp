@@ -2,54 +2,64 @@
 #include "PhysicalMemory.h"
 #include "MemoryManager.h"
 #include "CPU.h"
+#include "Opcode.h"
 
 using namespace std;
 
 int main() {
-    cout << "MidOS - Module 1 Starting..." << endl;
-    cout << "-------------------------------" << endl;
+    cout << "MidOS - Module 1 Test" << endl;
+    cout << "---------------------" << endl;
     
-    // Create physical memory (10KB for now)
     PhysicalMemory* physMem = new PhysicalMemory(10000);
-    cout << "Physical memory created: " << physMem->getSize() << " bytes" << endl;
-    
-    // Create memory manager
     MemoryManager* memMgr = new MemoryManager(physMem);
-    cout << "Memory manager created" << endl;
-    
-    // Create CPU
     CPU* cpu = new CPU(memMgr);
-    cout << "CPU created" << endl;
     
-    // Test: Write a simple instruction to memory
-    // Let's write an "incr r1" instruction
-    // For now just some bytes
-    memMgr->write(0, 1);      // Opcode 1 (we'll say this is incr)
-    memMgr->writeInt(1, 1);   // Arg1: register 1
-    memMgr->writeInt(5, 0);   // Arg2: unused
+    // Program: Load 10 into r1, load 5 into r2, add them, print result, exit
     
-    cout << "\nWritten test instruction to memory" << endl;
+    int addr = 0;
     
-    // Set up CPU initial state
-    cpu->setIP(0);           // Start at address 0
-    cpu->setRegister(1, 5);  // Put 5 in register 1
+    // MOVI r1, 10
+    memMgr->write(addr++, static_cast<uint8_t>(Opcode::MOVI));
+    memMgr->write(addr++, 1);  // r1
+    memMgr->writeInt(addr, 10);
+    addr += 4;
     
-    cout << "Register 1 before: " << cpu->getRegister(1) << endl;
+    // MOVI r2, 5
+    memMgr->write(addr++, static_cast<uint8_t>(Opcode::MOVI));
+    memMgr->write(addr++, 2);  // r2
+    memMgr->writeInt(addr, 5);
+    addr += 4;
     
-    // Execute one instruction
-    cout << "\nExecuting instruction..." << endl;
-    cpu->executeInstruction();
+    // ADDR r3, r1, r2  (r3 = r1 + r2)
+    memMgr->write(addr++, static_cast<uint8_t>(Opcode::ADDR));
+    memMgr->write(addr++, 3);  // dest: r3
+    memMgr->write(addr++, 1);  // src1: r1
+    memMgr->write(addr++, 2);  // src2: r2
     
-    cout << "\nClock ticks: " << cpu->getClockTicks() << endl;
-    cout << "Instruction Pointer: " << cpu->getIP() << endl;
+    // PRINTR r3
+    memMgr->write(addr++, static_cast<uint8_t>(Opcode::PRINTR));
+    memMgr->write(addr++, 3);  // r3
+    
+    // EXIT
+    memMgr->write(addr++, static_cast<uint8_t>(Opcode::EXIT));
+    
+    cout << "\nProgram loaded. Expected output: 15\n" << endl;
+    
+    // Set up CPU
+    cpu->setIP(0);
+    cpu->setSP(5000);  // Stack starts at address 5000
+    
+    // Run the program
+    cout << "Running program..." << endl;
+    cpu->run();
+    
+    cout << "\nProgram finished!" << endl;
+    cout << "Clock cycles: " << cpu->getClockTicks() << endl;
     
     // Cleanup
     delete cpu;
     delete memMgr;
     delete physMem;
-    
-    cout << "\n================================" << endl;
-    cout << "Test complete!" << endl;
     
     return 0;
 }
