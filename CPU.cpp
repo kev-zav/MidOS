@@ -1,6 +1,7 @@
 #include "CPU.h"
 #include <iostream>
 
+// Constructor - initializes CPU state
 CPU::CPU(MemoryManager* mm) {
     memoryManager = mm;
     
@@ -95,6 +96,7 @@ int32_t CPU::pop() {
     return value;
 }
 
+// Main execution loop - runs until EXIT or error
 void CPU::run() {
     running = true;
     
@@ -143,6 +145,37 @@ void CPU::executeInstruction() {
             int32_t destReg = memoryManager->readInt(registers[IP] + 1);
             int32_t srcReg = memoryManager->readInt(registers[IP] + 5);
             setRegister(destReg, getRegister(srcReg));
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::MOVMR: {
+            int32_t destReg = memoryManager->readInt(registers[IP] + 1);
+            int32_t srcReg = memoryManager->readInt(registers[IP] + 5);
+            int32_t address = getRegister(srcReg);
+            int32_t value = memoryManager->readInt(address);
+            setRegister(destReg, value);
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::MOVRM: {
+            int32_t destReg = memoryManager->readInt(registers[IP] + 1);
+            int32_t srcReg = memoryManager->readInt(registers[IP] + 5);
+            int32_t address = getRegister(destReg);
+            int32_t value = getRegister(srcReg);
+            memoryManager->writeInt(address, value);
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::MOVMM: {
+            int32_t destReg = memoryManager->readInt(registers[IP] + 1);
+            int32_t srcReg = memoryManager->readInt(registers[IP] + 5);
+            int32_t srcAddress = getRegister(srcReg);
+            int32_t destAddress = getRegister(destReg);
+            int32_t value = memoryManager->readInt(srcAddress);
+            memoryManager->writeInt(destAddress, value);
             registers[IP] += 9;
             break;
         }
@@ -231,6 +264,60 @@ void CPU::executeInstruction() {
             break;
         }
         
+        case Opcode::MOD: {
+            int32_t destReg = memoryManager->readInt(registers[IP] + 1);
+            int32_t arg2 = memoryManager->readInt(registers[IP] + 5);
+            int32_t srcReg1 = arg2 & 0xFFFF;
+            int32_t srcReg2 = (arg2 >> 16) & 0xFFFF;
+            
+            int32_t divisor = getRegister(srcReg2);
+            if (divisor == 0) {
+                std::cerr << "Error: Modulo by zero at IP " << registers[IP] << std::endl;
+                running = false;
+            } else {
+                int32_t result = getRegister(srcReg1) % divisor;
+                setRegister(destReg, result);
+                
+                zeroFlag = (result == 0);
+                signFlag = (result < 0);
+            }
+            
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::AND: {
+            int32_t destReg = memoryManager->readInt(registers[IP] + 1);
+            int32_t arg2 = memoryManager->readInt(registers[IP] + 5);
+            int32_t srcReg1 = arg2 & 0xFFFF;
+            int32_t srcReg2 = (arg2 >> 16) & 0xFFFF;
+            
+            int32_t result = getRegister(srcReg1) & getRegister(srcReg2);
+            setRegister(destReg, result);
+            
+            zeroFlag = (result == 0);
+            signFlag = (result < 0);
+            
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::OR: {
+            int32_t destReg = memoryManager->readInt(registers[IP] + 1);
+            int32_t arg2 = memoryManager->readInt(registers[IP] + 5);
+            int32_t srcReg1 = arg2 & 0xFFFF;
+            int32_t srcReg2 = (arg2 >> 16) & 0xFFFF;
+            
+            int32_t result = getRegister(srcReg1) | getRegister(srcReg2);
+            setRegister(destReg, result);
+            
+            zeroFlag = (result == 0);
+            signFlag = (result < 0);
+            
+            registers[IP] += 9;
+            break;
+        }
+        
         case Opcode::PRINTR: {
             int32_t regNum = memoryManager->readInt(registers[IP] + 1);
             std::cout << getRegister(regNum) << std::endl;
@@ -246,7 +333,36 @@ void CPU::executeInstruction() {
             break;
         }
         
+        case Opcode::PRINTCR: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            char c = static_cast<char>(getRegister(regNum));
+            std::cout << c << std::endl;
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::PRINTCM: {
+            int32_t address = memoryManager->readInt(registers[IP] + 1);
+            int32_t value = memoryManager->readInt(address);
+            char c = static_cast<char>(value);
+            std::cout << c << std::endl;
+            registers[IP] += 9;
+            break;
+        }
+        
         case Opcode::JMP: {
+            int32_t address = memoryManager->readInt(registers[IP] + 1);
+            registers[IP] = address;
+            break;
+        }
+        
+        case Opcode::JMPI: {
+            int32_t offset = memoryManager->readInt(registers[IP] + 1);
+            registers[IP] += offset;
+            break;
+        }
+        
+        case Opcode::JMPA: {
             int32_t address = memoryManager->readInt(registers[IP] + 1);
             registers[IP] = address;
             break;
@@ -272,7 +388,113 @@ void CPU::executeInstruction() {
             break;
         }
         
-        case Opcode::CMP: {
+        case Opcode::JLT: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t offset = getRegister(regNum);
+            if (signFlag) {
+                registers[IP] += offset;
+            } else {
+                registers[IP] += 9;
+            }
+            break;
+        }
+        
+        case Opcode::JLTI: {
+            int32_t offset = memoryManager->readInt(registers[IP] + 1);
+            if (signFlag) {
+                registers[IP] += offset;
+            } else {
+                registers[IP] += 9;
+            }
+            break;
+        }
+        
+        case Opcode::JLTA: {
+            int32_t address = memoryManager->readInt(registers[IP] + 1);
+            if (signFlag) {
+                registers[IP] = address;
+            } else {
+                registers[IP] += 9;
+            }
+            break;
+        }
+        
+        case Opcode::JGT: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t offset = getRegister(regNum);
+            if (!signFlag && !zeroFlag) {
+                registers[IP] += offset;
+            } else {
+                registers[IP] += 9;
+            }
+            break;
+        }
+        
+        case Opcode::JGTI: {
+            int32_t offset = memoryManager->readInt(registers[IP] + 1);
+            if (!signFlag && !zeroFlag) {
+                registers[IP] += offset;
+            } else {
+                registers[IP] += 9;
+            }
+            break;
+        }
+        
+        case Opcode::JGTA: {
+            int32_t address = memoryManager->readInt(registers[IP] + 1);
+            if (!signFlag && !zeroFlag) {
+                registers[IP] = address;
+            } else {
+                registers[IP] += 9;
+            }
+            break;
+        }
+        
+        case Opcode::JE: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t offset = getRegister(regNum);
+            if (zeroFlag) {
+                registers[IP] += offset;
+            } else {
+                registers[IP] += 9;
+            }
+            break;
+        }
+        
+        case Opcode::JEI: {
+            int32_t offset = memoryManager->readInt(registers[IP] + 1);
+            if (zeroFlag) {
+                registers[IP] += offset;
+            } else {
+                registers[IP] += 9;
+            }
+            break;
+        }
+        
+        case Opcode::JEA: {
+            int32_t address = memoryManager->readInt(registers[IP] + 1);
+            if (zeroFlag) {
+                registers[IP] = address;
+            } else {
+                registers[IP] += 9;
+            }
+            break;
+        }
+        
+        case Opcode::CMPI: {
+            int32_t reg = memoryManager->readInt(registers[IP] + 1);
+            int32_t value = memoryManager->readInt(registers[IP] + 5);
+            
+            int32_t result = getRegister(reg) - value;
+            
+            zeroFlag = (result == 0);
+            signFlag = (result < 0);
+            
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::CMPR: {
             int32_t reg1 = memoryManager->readInt(registers[IP] + 1);
             int32_t reg2 = memoryManager->readInt(registers[IP] + 5);
             
@@ -306,6 +528,15 @@ void CPU::executeInstruction() {
             break;
         }
         
+        case Opcode::POPM: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t address = getRegister(regNum);
+            int32_t value = pop();
+            memoryManager->writeInt(address, value);
+            registers[IP] += 9;
+            break;
+        }
+        
         case Opcode::CALL: {
             int32_t address = memoryManager->readInt(registers[IP] + 1);
             push(registers[IP] + 9);
@@ -313,8 +544,59 @@ void CPU::executeInstruction() {
             break;
         }
         
+        case Opcode::CALLM: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t address = memoryManager->readInt(getRegister(regNum));
+            push(registers[IP] + 9);
+            registers[IP] = address;
+            break;
+        }
+        
         case Opcode::RET: {
             registers[IP] = pop();
+            break;
+        }
+        
+        case Opcode::INPUT: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t value;
+            std::cin >> value;
+            setRegister(regNum, value);
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::INPUTC: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            char c;
+            std::cin >> c;
+            setRegister(regNum, static_cast<int32_t>(c));
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::SLEEP: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t cycles = getRegister(regNum);
+            for (int i = 0; i < cycles; i++) {
+                incrementClock();
+            }
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::SETPRIORITY: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t priority = memoryManager->readInt(getRegister(regNum));
+            // Placeholder for scheduler integration in later modules
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::SETPRIORITYI: {
+            int32_t priority = memoryManager->readInt(registers[IP] + 1);
+            // Placeholder for scheduler integration in later modules
+            registers[IP] += 9;
             break;
         }
         

@@ -62,22 +62,18 @@ bool Program::isRegister(const std::string& str) {
 int Program::parseOperand(const std::string& operand) {
     std::string op = trim(operand);
     
-    // Check for constant (#123)
     if (op[0] == '#') {
         return std::stoi(op.substr(1));
     }
     
-    // Check for character (@a)
     if (op[0] == '@') {
         return static_cast<int>(op[1]);
     }
     
-    // Check for register (r1)
     if (isRegister(op)) {
         return std::stoi(op.substr(1));
     }
     
-    // Otherwise it's a direct number
     return std::stoi(op);
 }
 
@@ -97,14 +93,29 @@ uint8_t Program::getOpcodeValue(const std::string& mnemonic) {
     if (upper == "MOVMM") return static_cast<uint8_t>(Opcode::MOVMM);
     if (upper == "PRINTR") return static_cast<uint8_t>(Opcode::PRINTR);
     if (upper == "PRINTM") return static_cast<uint8_t>(Opcode::PRINTM);
+    if (upper == "PRINTCR") return static_cast<uint8_t>(Opcode::PRINTCR);
+    if (upper == "PRINTCM") return static_cast<uint8_t>(Opcode::PRINTCM);
     if (upper == "JMP") return static_cast<uint8_t>(Opcode::JMP);
+    if (upper == "JMPI") return static_cast<uint8_t>(Opcode::JMPI);
+    if (upper == "JMPA") return static_cast<uint8_t>(Opcode::JMPA);
     if (upper == "JMPE") return static_cast<uint8_t>(Opcode::JMPE);
     if (upper == "JMPNE") return static_cast<uint8_t>(Opcode::JMPNE);
     if (upper == "JMPLT") return static_cast<uint8_t>(Opcode::JMPLT);
+    if (upper == "JLT") return static_cast<uint8_t>(Opcode::JLT);
+    if (upper == "JLTI") return static_cast<uint8_t>(Opcode::JLTI);
+    if (upper == "JLTA") return static_cast<uint8_t>(Opcode::JLTA);
     if (upper == "JMPGT") return static_cast<uint8_t>(Opcode::JMPGT);
+    if (upper == "JGT") return static_cast<uint8_t>(Opcode::JGT);
+    if (upper == "JGTI") return static_cast<uint8_t>(Opcode::JGTI);
+    if (upper == "JGTA") return static_cast<uint8_t>(Opcode::JGTA);
+    if (upper == "JE") return static_cast<uint8_t>(Opcode::JE);
+    if (upper == "JEI") return static_cast<uint8_t>(Opcode::JEI);
+    if (upper == "JEA") return static_cast<uint8_t>(Opcode::JEA);
     if (upper == "CALL") return static_cast<uint8_t>(Opcode::CALL);
+    if (upper == "CALLM") return static_cast<uint8_t>(Opcode::CALLM);
     if (upper == "RET") return static_cast<uint8_t>(Opcode::RET);
-    if (upper == "CMP") return static_cast<uint8_t>(Opcode::CMP);
+    if (upper == "CMPI") return static_cast<uint8_t>(Opcode::CMPI);
+    if (upper == "CMPR") return static_cast<uint8_t>(Opcode::CMPR);
     if (upper == "SUB") return static_cast<uint8_t>(Opcode::SUB);
     if (upper == "MUL") return static_cast<uint8_t>(Opcode::MUL);
     if (upper == "DIV") return static_cast<uint8_t>(Opcode::DIV);
@@ -115,7 +126,10 @@ uint8_t Program::getOpcodeValue(const std::string& mnemonic) {
     if (upper == "POPM") return static_cast<uint8_t>(Opcode::POPM);
     if (upper == "EXIT") return static_cast<uint8_t>(Opcode::EXIT);
     if (upper == "SLEEP") return static_cast<uint8_t>(Opcode::SLEEP);
+    if (upper == "SETPRIORITY") return static_cast<uint8_t>(Opcode::SETPRIORITY);
+    if (upper == "SETPRIORITYI") return static_cast<uint8_t>(Opcode::SETPRIORITYI);
     if (upper == "INPUT") return static_cast<uint8_t>(Opcode::INPUT);
+    if (upper == "INPUTC") return static_cast<uint8_t>(Opcode::INPUTC);
     
     std::cerr << "Error: Unknown opcode '" << mnemonic << "'" << std::endl;
     return static_cast<uint8_t>(Opcode::INVALID);
@@ -135,23 +149,18 @@ bool Program::loadFromFile(const std::string& filename) {
     while (std::getline(file, line)) {
         lineNumber++;
         
-        // Remove comments (everything after ;)
         size_t commentPos = line.find(';');
         if (commentPos != std::string::npos) {
             line = line.substr(0, commentPos);
         }
         
-        // Trim whitespace
         line = trim(line);
         
-        // Skip empty lines
         if (line.empty()) continue;
         
-        // Split into tokens
         std::vector<std::string> tokens = split(line, ' ');
         if (tokens.empty()) continue;
         
-        // First token is the opcode
         std::string opcode = tokens[0];
         uint8_t opcodeValue = getOpcodeValue(opcode);
         
@@ -160,20 +169,16 @@ bool Program::loadFromFile(const std::string& filename) {
             return false;
         }
         
-        // Add opcode to bytecode
         bytecode.push_back(opcodeValue);
         
-        // Parse operands
         int arg1 = 0, arg2 = 0;
         
         if (tokens.size() > 1) {
-            // Combine all tokens after opcode
             std::string operands = "";
             for (size_t i = 1; i < tokens.size(); i++) {
                 operands += tokens[i];
             }
             
-            // Split by comma
             std::vector<std::string> args = split(operands, ',');
             
             if (args.size() > 0) {
@@ -182,15 +187,12 @@ bool Program::loadFromFile(const std::string& filename) {
             if (args.size() > 1) {
                 arg2 = parseOperand(args[1]);
             }
-            // Handle 3-arg instructions (ADDR, SUB, MUL, DIV)
-            // Pack arg2 and arg3 into a single 32-bit value
             if (args.size() > 2) {
                 int arg3 = parseOperand(args[2]);
                 arg2 = (arg2 & 0xFFFF) | ((arg3 & 0xFFFF) << 16);
             }
         }
         
-        // Add arguments as 4-byte integers (little-endian)
         bytecode.push_back(arg1 & 0xFF);
         bytecode.push_back((arg1 >> 8) & 0xFF);
         bytecode.push_back((arg1 >> 16) & 0xFF);

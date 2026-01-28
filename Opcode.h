@@ -15,16 +15,31 @@ enum class Opcode {
     MOVMM,          // Move from memory to memory
     PRINTR,         // Print register value
     PRINTM,         // Print memory value
+    PRINTCR,        // Print register as character
+    PRINTCM,        // Print memory as character
     
     // Control Flow
     JMP,            // Unconditional jump
+    JMPI,           // Jump immediate offset
+    JMPA,           // Jump absolute address
     JMPE,           // Jump if equal (zero flag set)
     JMPNE,          // Jump if not equal
     JMPLT,          // Jump if less than
+    JLT,            // Jump if less than (register offset)
+    JLTI,           // Jump if less than (immediate offset)
+    JLTA,           // Jump if less than (absolute address)
     JMPGT,          // Jump if greater than
+    JGT,            // Jump if greater than (register offset)
+    JGTI,           // Jump if greater than (immediate offset)
+    JGTA,           // Jump if greater than (absolute address)
+    JE,             // Jump if equal (register offset)
+    JEI,            // Jump if equal (immediate offset)
+    JEA,            // Jump if equal (absolute address)
     CALL,           // Call function
+    CALLM,          // Call function with memory address
     RET,            // Return from function
-    CMP,            // Compare two values
+    CMPI,           // Compare register with immediate
+    CMPR,           // Compare two registers
     
     // Arithmetic
     SUB,            // Subtract
@@ -48,10 +63,13 @@ enum class Opcode {
     WAIT_EVENT,     // Wait for an event
     SLEEP,          // Sleep for N cycles
     SET_PRIORITY,   // Set process priority
+    SETPRIORITY,    // Set process priority (register)
+    SETPRIORITYI,   // Set process priority (immediate)
     EXIT,           // Exit process
     ACQUIRE_LOCK,   // Acquire a lock
     RELEASE_LOCK,   // Release a lock
     INPUT,          // Read input from console
+    INPUTC,         // Read character from console
     TERMINATE_PROCESS, // Kill another process
     
     // Special
