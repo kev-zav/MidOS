@@ -2,55 +2,44 @@
 #include "PhysicalMemory.h"
 #include "MemoryManager.h"
 #include "CPU.h"
-#include "Opcode.h"
+#include "Program.h"
 
 using namespace std;
 
-int main() {
-    cout << "MidOS - Module 1 Test" << endl;
-    cout << "---------------------" << endl;
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        cout << "Usage: " << argv[0] << " <program.asm>" << endl;
+        return 1;
+    }
     
+    cout << "MidOS - Module 1 with Program Loader" << endl;
+    cout << "=====================================" << endl;
+    
+    // Load program from file
+    Program program;
+    if (!program.loadFromFile(argv[1])) {
+        cerr << "Failed to load program" << endl;
+        return 1;
+    }
+    
+    cout << "Program loaded: " << program.getSize() << " bytes" << endl;
+    
+    // Create memory and CPU
     PhysicalMemory* physMem = new PhysicalMemory(10000);
     MemoryManager* memMgr = new MemoryManager(physMem);
     CPU* cpu = new CPU(memMgr);
     
-    // Program: Load 10 into r1, load 5 into r2, add them, print result, exit
-    
-    int addr = 0;
-    
-    // MOVI r1, 10
-    memMgr->write(addr++, static_cast<uint8_t>(Opcode::MOVI));
-    memMgr->write(addr++, 1);  // r1
-    memMgr->writeInt(addr, 10);
-    addr += 4;
-    
-    // MOVI r2, 5
-    memMgr->write(addr++, static_cast<uint8_t>(Opcode::MOVI));
-    memMgr->write(addr++, 2);  // r2
-    memMgr->writeInt(addr, 5);
-    addr += 4;
-    
-    // ADDR r3, r1, r2  (r3 = r1 + r2)
-    memMgr->write(addr++, static_cast<uint8_t>(Opcode::ADDR));
-    memMgr->write(addr++, 3);  // dest: r3
-    memMgr->write(addr++, 1);  // src1: r1
-    memMgr->write(addr++, 2);  // src2: r2
-    
-    // PRINTR r3
-    memMgr->write(addr++, static_cast<uint8_t>(Opcode::PRINTR));
-    memMgr->write(addr++, 3);  // r3
-    
-    // EXIT
-    memMgr->write(addr++, static_cast<uint8_t>(Opcode::EXIT));
-    
-    cout << "\nProgram loaded. Expected output: 15\n" << endl;
-    
-    // Set up CPU
+    // Load program bytecode into memory
+    const vector<uint8_t>& bytecode = program.getBytecode();
+    for (size_t i = 0; i < bytecode.size(); i++) {
+        memMgr->write(i, bytecode[i]);
+    }
+
     cpu->setIP(0);
-    cpu->setSP(5000);  // Stack starts at address 5000
+    cpu->setSP(5000);
     
-    // Run the program
-    cout << "Running program..." << endl;
+    cout << "\nRunning program...\n" << endl;
+    
     cpu->run();
     
     cout << "\nProgram finished!" << endl;
