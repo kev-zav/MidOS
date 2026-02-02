@@ -12,8 +12,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    cout << "MidOS - Module 1 with Program Loader" << endl;
-    cout << "=====================================" << endl;
+    cout << "MidOS - Module 1" << endl;
+    cout << "=================" << endl;
     
     // Load program from file
     Program program;
@@ -22,21 +22,53 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    cout << "Program loaded: " << program.getSize() << " bytes" << endl;
+    // Memory region sizes
+    int codeSize = program.getSize();
+    int globalDataSize = 512;
+    int heapSize = 512;
+    int stackSize = 512;
+    
+    // Calculate total memory needed
+    int totalMemory = codeSize + globalDataSize + heapSize + stackSize;
+    
+    // Calculate region starting addresses
+    int codeStart = 0;
+    int globalDataStart = codeSize;
+    int heapStart = codeSize + globalDataSize;
+    int stackTop = totalMemory;  // Stack starts at top, grows down
+    
+    cout << "Program loaded: " << codeSize << " bytes" << endl;
+    cout << "\nMemory Layout:" << endl;
+    cout << "  Code:        " << codeStart << " - " << (globalDataStart - 1) << endl;
+    cout << "  Global Data: " << globalDataStart << " - " << (heapStart - 1) << endl;
+    cout << "  Heap:        " << heapStart << " - " << (stackTop - stackSize - 1) << endl;
+    cout << "  Stack:       " << stackTop << " (grows down)" << endl;
+    cout << "  Total:       " << totalMemory << " bytes" << endl;
     
     // Create memory and CPU
-    PhysicalMemory* physMem = new PhysicalMemory(10000);
+    PhysicalMemory* physMem = new PhysicalMemory(totalMemory);
     MemoryManager* memMgr = new MemoryManager(physMem);
     CPU* cpu = new CPU(memMgr);
     
-    // Load program bytecode into memory
+    // Load program bytecode into memory (CODE region)
     const vector<uint8_t>& bytecode = program.getBytecode();
     for (size_t i = 0; i < bytecode.size(); i++) {
         memMgr->write(i, bytecode[i]);
     }
-
-    cpu->setIP(0);
-    cpu->setSP(5000);
+    
+    // Global data region is already initialized to 0 by PhysicalMemory
+    
+    // Set up CPU registers for process
+    cpu->setIP(0);                          // r11 = Instruction Pointer (start of code)
+    cpu->setRegister(12, 1);                // r12 = Process ID
+    cpu->setSP(stackTop);                   // r13 = Stack Pointer (top of memory)
+    cpu->setRegister(14, globalDataStart);  // r14 = Global Data start address
+    
+    cout << "\nInitial Registers:" << endl;
+    cout << "  r11 (IP): " << cpu->getIP() << endl;
+    cout << "  r12 (PID): " << cpu->getRegister(12) << endl;
+    cout << "  r13 (SP): " << cpu->getSP() << endl;
+    cout << "  r14 (GP): " << cpu->getRegister(14) << endl;
     
     cout << "\nRunning program...\n" << endl;
     
