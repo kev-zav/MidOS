@@ -1,9 +1,11 @@
 #include "CPU.h"
+#include "Scheduler.h"
 #include <iostream>
 
 // Constructor - initializes CPU state
-CPU::CPU(MemoryManager* mm) {
+CPU::CPU(MemoryManager* mm, Scheduler* sched) {
     memoryManager = mm;
+    scheduler = sched;
     
     for (int i = 0; i < 15; i++) {
         registers[i] = 0;
@@ -81,6 +83,7 @@ int CPU::getClockTicks() {
 // Increment clock by one tick
 void CPU::incrementClock() {
     clockTicks++;
+    scheduler->tick();
 }
 
 // Push value onto stack
@@ -96,17 +99,46 @@ int32_t CPU::pop() {
     return value;
 }
 
-// Main execution loop - runs until EXIT or error
+// Check if context switch is needed
+bool CPU::needsContextSwitch() {
+    PCB* current = scheduler->getCurrentProcess();
+    if (current == nullptr) return true;
+    if (current->state != ProcessState::Running) return true;
+    if (current->remainingQuantum <= 0) return true;
+    return false;
+}
+
+// Main execution loop - runs until all processes done
 void CPU::run() {
     running = true;
     
     while (running) {
+        // Check if we need a context switch
+        if (needsContextSwitch()) {
+            if (scheduler->allProcessesTerminated()) {
+                running = false;
+                break;
+            }
+            
+            if (!scheduler->hasReadyProcess()) {
+                // No ready process, just tick sleeping ones
+                scheduler->updateSleepingProcesses();
+                clockTicks++;
+                continue;
+            }
+            
+            scheduler->contextSwitch(this);
+        }
+        
+        if (scheduler->getCurrentProcess() == nullptr) {
+            continue;
+        }
+        
         executeInstruction();
     }
 }
 
 // Execute single instruction at current IP
-// All instructions are 9 bytes: opcode(1) + arg1(4) + arg2(4)
 void CPU::executeInstruction() {
     Opcode opcode = static_cast<Opcode>(memoryManager->read(registers[IP]));
     incrementClock();
@@ -117,7 +149,7 @@ void CPU::executeInstruction() {
             break;
             
         case Opcode::EXIT:
-            running = false;
+            scheduler->terminateCurrentProcess();
             break;
             
         case Opcode::INCR: {
@@ -193,7 +225,6 @@ void CPU::executeInstruction() {
             break;
         }
         
-        // For 3-arg instructions: pack src1 and src2 into arg2 (lower/upper 16 bits)
         case Opcode::ADDR: {
             int32_t destReg = memoryManager->readInt(registers[IP] + 1);
             int32_t arg2 = memoryManager->readInt(registers[IP] + 5);
@@ -251,7 +282,7 @@ void CPU::executeInstruction() {
             int32_t divisor = getRegister(srcReg2);
             if (divisor == 0) {
                 std::cerr << "Error: Division by zero at IP " << registers[IP] << std::endl;
-                running = false;
+                scheduler->terminateCurrentProcess();
             } else {
                 int32_t result = getRegister(srcReg1) / divisor;
                 setRegister(destReg, result);
@@ -273,7 +304,7 @@ void CPU::executeInstruction() {
             int32_t divisor = getRegister(srcReg2);
             if (divisor == 0) {
                 std::cerr << "Error: Modulo by zero at IP " << registers[IP] << std::endl;
-                running = false;
+                scheduler->terminateCurrentProcess();
             } else {
                 int32_t result = getRegister(srcReg1) % divisor;
                 setRegister(destReg, result);
@@ -295,9 +326,6 @@ void CPU::executeInstruction() {
             int32_t result = getRegister(srcReg1) & getRegister(srcReg2);
             setRegister(destReg, result);
             
-            zeroFlag = (result == 0);
-            signFlag = (result < 0);
-            
             registers[IP] += 9;
             break;
         }
@@ -311,22 +339,21 @@ void CPU::executeInstruction() {
             int32_t result = getRegister(srcReg1) | getRegister(srcReg2);
             setRegister(destReg, result);
             
-            zeroFlag = (result == 0);
-            signFlag = (result < 0);
-            
             registers[IP] += 9;
             break;
         }
         
         case Opcode::PRINTR: {
             int32_t regNum = memoryManager->readInt(registers[IP] + 1);
-            std::cout << getRegister(regNum) << std::endl;
+            int32_t value = getRegister(regNum);
+            std::cout << value << std::endl;
             registers[IP] += 9;
             break;
         }
         
         case Opcode::PRINTM: {
-            int32_t address = memoryManager->readInt(registers[IP] + 1);
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t address = getRegister(regNum);
             int32_t value = memoryManager->readInt(address);
             std::cout << value << std::endl;
             registers[IP] += 9;
@@ -335,14 +362,16 @@ void CPU::executeInstruction() {
         
         case Opcode::PRINTCR: {
             int32_t regNum = memoryManager->readInt(registers[IP] + 1);
-            char c = static_cast<char>(getRegister(regNum));
+            int32_t value = getRegister(regNum);
+            char c = static_cast<char>(value);
             std::cout << c << std::endl;
             registers[IP] += 9;
             break;
         }
         
         case Opcode::PRINTCM: {
-            int32_t address = memoryManager->readInt(registers[IP] + 1);
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t address = getRegister(regNum);
             int32_t value = memoryManager->readInt(address);
             char c = static_cast<char>(value);
             std::cout << c << std::endl;
@@ -563,6 +592,14 @@ void CPU::executeInstruction() {
             std::cin >> value;
             setRegister(regNum, value);
             registers[IP] += 9;
+            // Context switch after input
+            scheduler->saveContext(this);
+            PCB* current = scheduler->getCurrentProcess();
+            if (current != nullptr) {
+                current->state = ProcessState::Ready;
+                current->contextSwitches++;
+            }
+            scheduler->contextSwitch(this);
             break;
         }
         
@@ -572,30 +609,43 @@ void CPU::executeInstruction() {
             std::cin >> c;
             setRegister(regNum, static_cast<int32_t>(c));
             registers[IP] += 9;
+            // Context switch after input
+            scheduler->saveContext(this);
+            PCB* current = scheduler->getCurrentProcess();
+            if (current != nullptr) {
+                current->state = ProcessState::Ready;
+                current->contextSwitches++;
+            }
+            scheduler->contextSwitch(this);
             break;
         }
         
         case Opcode::SLEEP: {
             int32_t regNum = memoryManager->readInt(registers[IP] + 1);
             int32_t cycles = getRegister(regNum);
-            for (int i = 0; i < cycles; i++) {
-                incrementClock();
-            }
             registers[IP] += 9;
+            scheduler->sleepCurrentProcess(cycles);
+            scheduler->contextSwitch(this);
             break;
         }
         
         case Opcode::SETPRIORITY: {
             int32_t regNum = memoryManager->readInt(registers[IP] + 1);
-            int32_t priority = memoryManager->readInt(getRegister(regNum));
-            // Placeholder for scheduler integration in later modules
+            int32_t priority = getRegister(regNum);
+            PCB* current = scheduler->getCurrentProcess();
+            if (current != nullptr) {
+                current->priority = priority;
+            }
             registers[IP] += 9;
             break;
         }
         
         case Opcode::SETPRIORITYI: {
             int32_t priority = memoryManager->readInt(registers[IP] + 1);
-            // Placeholder for scheduler integration in later modules
+            PCB* current = scheduler->getCurrentProcess();
+            if (current != nullptr) {
+                current->priority = priority;
+            }
             registers[IP] += 9;
             break;
         }
@@ -603,7 +653,7 @@ void CPU::executeInstruction() {
         default:
             std::cerr << "Error: Unimplemented opcode " << static_cast<int>(opcode) 
                       << " at address " << registers[IP] << std::endl;
-            running = false;
+            scheduler->terminateCurrentProcess();
             break;
     }
 }

@@ -3,98 +3,51 @@
 #include "MemoryManager.h"
 #include "CPU.h"
 #include "Program.h"
+#include "Scheduler.h"
 
 using namespace std;
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        cout << "Usage: " << argv[0] << " <program.asm>" << endl;
+        cout << "Please provide at least one program file." << endl;
         return 1;
     }
     
-    cout << "MidOS - Module 2" << endl;
+    cout << "MidOS - Module 3" << endl;
     cout << "=================" << endl;
     
-    Program program;
-    if (!program.loadFromFile(argv[1])) {
-        cerr << "Failed to load program" << endl;
-        return 1;
-    }
-    
-    const int PAGE_SIZE = 256;
-    
-    int codeSize = program.getSize();
-    int globalDataSize = 512;
-    int heapSize = 512;
-    int stackSize = 512;
-    
-    int codePagesNeeded = (codeSize + PAGE_SIZE - 1) / PAGE_SIZE;
-    int globalDataPagesNeeded = (globalDataSize + PAGE_SIZE - 1) / PAGE_SIZE;
-    int heapPagesNeeded = (heapSize + PAGE_SIZE - 1) / PAGE_SIZE;
-    int stackPagesNeeded = (stackSize + PAGE_SIZE - 1) / PAGE_SIZE;
-    int totalPagesNeeded = codePagesNeeded + globalDataPagesNeeded + heapPagesNeeded + stackPagesNeeded;
-    
-    int totalMemory = (totalPagesNeeded + 4) * PAGE_SIZE;
-    
-    cout << "Program loaded: " << codeSize << " bytes" << endl;
-    
+    // Create physical memory (64KB)
+    int totalMemory = 65536;
     PhysicalMemory* physMem = new PhysicalMemory(totalMemory);
     MemoryManager* memMgr = new MemoryManager(physMem);
-    CPU* cpu = new CPU(memMgr);
+    Scheduler* scheduler = new Scheduler(memMgr);
+    CPU* cpu = new CPU(memMgr, scheduler);
     
-    const vector<uint8_t>& bytecode = program.getBytecode();
-    int currentVirtualPage = 0;
-    
-    // Allocate and map CODE pages
-    for (int i = 0; i < codePagesNeeded; i++) {
-        int physPage = memMgr->allocatePage();
-        memMgr->mapPage(currentVirtualPage + i, physPage);
+    // Load each program as a process
+    for (int i = 1; i < argc; i++) {
+        Program program;
+        if (!program.loadFromFile(argv[i])) {
+            cerr << "Failed to load program: " << argv[i] << endl;
+            continue;
+        }
+        
+        // Priority based on load order (first = highest)
+        int priority = 32 - i;
+        scheduler->createProcess(program, priority);
     }
     
-    // Write bytecode to virtual memory
-    for (size_t i = 0; i < bytecode.size(); i++) {
-        memMgr->write(i, bytecode[i]);
-    }
-    currentVirtualPage += codePagesNeeded;
-    
-    // Allocate and map GLOBAL DATA pages
-    int globalDataStart = currentVirtualPage * PAGE_SIZE;
-    for (int i = 0; i < globalDataPagesNeeded; i++) {
-        int physPage = memMgr->allocatePage();
-        memMgr->mapPage(currentVirtualPage + i, physPage);
-    }
-    currentVirtualPage += globalDataPagesNeeded;
-    
-    // Allocate and map HEAP pages
-    for (int i = 0; i < heapPagesNeeded; i++) {
-        int physPage = memMgr->allocatePage();
-        memMgr->mapPage(currentVirtualPage + i, physPage);
-    }
-    currentVirtualPage += heapPagesNeeded;
-    
-    // Allocate and map STACK pages
-    int stackStart = currentVirtualPage * PAGE_SIZE;
-    int stackTop = stackStart + stackSize;
-    for (int i = 0; i < stackPagesNeeded; i++) {
-        int physPage = memMgr->allocatePage();
-        memMgr->mapPage(currentVirtualPage + i, physPage);
-    }
-    
-    memMgr->printPageTable();
-    
-    cpu->setIP(0);
-    cpu->setRegister(12, 1);
-    cpu->setSP(stackTop);
-    cpu->setRegister(14, globalDataStart);
-    
-    cout << "\nRunning program...\n" << endl;
+    cout << "\nRunning processes...\n" << endl;
     
     cpu->run();
     
-    cout << "\nProgram finished!" << endl;
-    cout << "Clock cycles: " << cpu->getClockTicks() << endl;
+    scheduler->printStatistics();
     
+    cout << "All processes completed." << endl;
+    cout << "Total clock cycles: " << cpu->getClockTicks() << endl;
+    
+    // Cleanup
     delete cpu;
+    delete scheduler;
     delete memMgr;
     delete physMem;
     

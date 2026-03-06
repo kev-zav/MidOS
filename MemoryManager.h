@@ -14,7 +14,7 @@ private:
     static const int PAGE_MASK = 0xFFFFFF;
     
     //Page table
-    std::vector<int> pageTable;
+    std::vector<int>* pageTable;
 
     //Tracks which pages are free
     std::vector<bool> freePages;
@@ -43,6 +43,8 @@ public:
 
     int getPageSize();
     int getTotalPages();
+    void setPageTable(std::vector<int>* pt);
+    void freePage(int physicalPage);
     void printPageTable();
 };
 

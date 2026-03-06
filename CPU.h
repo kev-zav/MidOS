@@ -2,8 +2,11 @@
 #define CPU_H
 
 #include "MemoryManager.h"
+#include "PCB.h"
 #include <cstdint>
 #include "Opcode.h"
+
+class Scheduler;
 
 class CPU {
 private:
@@ -25,12 +28,13 @@ private:
     
     // Memory
     MemoryManager* memoryManager;
+    Scheduler* scheduler;
     
     // Running state
     bool running;
     
 public:
-    CPU(MemoryManager* mm);
+    CPU(MemoryManager* mm, Scheduler* sched);
     
     // Register access
     int32_t getRegister(int regNum);
@@ -56,6 +60,7 @@ public:
     void run();  // Main execution loop
     void executeInstruction();  // Execute one instruction
     void stop();  // Stop execution
+    bool needsContextSwitch();
     
     // Helper methods
     void push(int32_t value);  // Push to stack

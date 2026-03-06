@@ -6,19 +6,19 @@ MemoryManager::MemoryManager(PhysicalMemory* pm) {
     physicalMemory = pm;
     totalPhysicalPages = pm->getSize() / PAGE_SIZE;
     freePages.resize(totalPhysicalPages, true);
-    pageTable.clear();
+    pageTable = nullptr;
 }
 
 int MemoryManager::translateAddress(int virtualAddress) {
     int virtualPage = (virtualAddress >> OFFSET_BITS) & PAGE_MASK;
     int offset = virtualAddress & OFFSET_MASK;
 
-    if (virtualPage >= pageTable.size() || pageTable[virtualPage] == -1) {
+    if (pageTable == nullptr || virtualPage >= pageTable->size() || (*pageTable)[virtualPage] == -1) {
         std::cerr << "Error: Page fault at virtual page " << virtualPage << std::endl;
         return -1;
     }
 
-    int physicalPage = pageTable[virtualPage];
+    int physicalPage = (*pageTable)[virtualPage];
     return (physicalPage * PAGE_SIZE) + offset;
 }
 
@@ -66,25 +66,27 @@ int MemoryManager::allocatePage() {
 }
 
 void MemoryManager::mapPage(int virtualPage, int physicalPage) {
-    if (virtualPage >= pageTable.size()) {
-        pageTable.resize(virtualPage + 1, -1);
+    if (pageTable == nullptr) return;
+    if (virtualPage >= pageTable->size()) {
+        pageTable->resize(virtualPage + 1, -1);
     }
-    pageTable[virtualPage] = physicalPage;
+    (*pageTable)[virtualPage] = physicalPage;
     if (physicalPage >= 0 && physicalPage < totalPhysicalPages) {
         freePages[physicalPage] = false;
     }
 }
 
 void MemoryManager::unmapPage(int virtualPage) {
-    if (virtualPage < pageTable.size() && pageTable[virtualPage] != -1) {
-        freePages[pageTable[virtualPage]] = true;
-        pageTable[virtualPage] = -1;
+    if (pageTable == nullptr) return;
+    if (virtualPage < pageTable->size() && (*pageTable)[virtualPage] != -1) {
+        freePages[(*pageTable)[virtualPage]] = true;
+        (*pageTable)[virtualPage] = -1;
     }
 }
 
 int MemoryManager::getPhysicalPage(int virtualPage) {
-    if (virtualPage >= pageTable.size()) return -1;
-    return pageTable[virtualPage];
+    if (pageTable == nullptr || virtualPage >= pageTable->size()) return -1;
+    return (*pageTable)[virtualPage];
 }
 
 int MemoryManager::getPageSize() {
@@ -97,10 +99,25 @@ int MemoryManager::getTotalPages() {
 
 void MemoryManager::printPageTable() {
     std::cout << "\n=== Page Table ===" << std::endl;
-    for (int i = 0; i < pageTable.size(); i++) {
-        if (pageTable[i] != -1) {
-            std::cout << "  Virtual " << i << " -> Physical " << pageTable[i] << std::endl;
+    if (pageTable == nullptr) {
+        std::cout << "  No page table set" << std::endl;
+        std::cout << "==================\n" << std::endl;
+        return;
+    }
+    for (int i = 0; i < pageTable->size(); i++) {
+        if ((*pageTable)[i] != -1) {
+            std::cout << "  Virtual " << i << " -> Physical " << (*pageTable)[i] << std::endl;
         }
     }
     std::cout << "==================\n" << std::endl;
+}
+
+void MemoryManager::setPageTable(std::vector<int>* pt) {
+    pageTable = pt;
+}
+
+void MemoryManager::freePage(int physicalPage) {
+    if (physicalPage >= 0 && physicalPage < totalPhysicalPages) {
+        freePages[physicalPage] = true;
+    }
 }
