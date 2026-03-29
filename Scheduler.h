@@ -16,6 +16,14 @@ private:
     int nextProcessId;
     MemoryManager* memoryManager;
     
+    // Locks: -1 = free, otherwise = process ID that holds it
+    static const int NUM_LOCKS = 10;
+    int locks[NUM_LOCKS];
+    
+    // Events: false = non-signaled, true = signaled
+    static const int NUM_EVENTS = 10;
+    bool events[NUM_EVENTS];
+    
     PCB* findNextProcess();
     
 public:
@@ -42,6 +50,15 @@ public:
     bool allProcessesTerminated();
     
     void printStatistics();
+    
+    // Locks
+    bool acquireLock(int lockId, int processId);
+    bool releaseLock(int lockId, int processId);
+    void releaseAllLocks(int processId);
+    
+    // Events
+    void signalEvent(int eventId);
+    void waitEvent(int eventId);
 };
 
 #endif

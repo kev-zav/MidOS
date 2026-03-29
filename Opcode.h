@@ -58,20 +58,24 @@ enum class Opcode {
     // System Calls
     ALLOC,          // Allocate memory
     FREE_MEMORY,    // Free allocated memory
-    MAP_SHARED_MEM, // Map shared memory
-    SIGNAL_EVENT,   // Signal an event
-    WAIT_EVENT,     // Wait for an event
+    MAP_SHARED_MEM, // Map shared memory region
+    SIGNAL_EVENT,   // Signal event (register)
+    SIGNAL_EVENT_I, // Signal event (immediate)
+    WAIT_EVENT,     // Wait for event (register)
+    WAIT_EVENT_I,   // Wait for event (immediate)
     SLEEP,          // Sleep for N cycles
     SET_PRIORITY,   // Set process priority
     SETPRIORITY,    // Set process priority (register)
     SETPRIORITYI,   // Set process priority (immediate)
     EXIT,           // Exit process
-    ACQUIRE_LOCK,   // Acquire a lock
-    RELEASE_LOCK,   // Release a lock
+    ACQUIRE_LOCK,   // Acquire lock (register)
+    ACQUIRE_LOCK_I, // Acquire lock (immediate)
+    RELEASE_LOCK,   // Release lock (register)
+    RELEASE_LOCK_I, // Release lock (immediate)
     INPUT,          // Read input from console
     INPUTC,         // Read character from console
     TERMINATE_PROCESS, // Kill another process
-    
+
     // Special
     NOOP = 0,       // No operation
     INVALID = 255   // Invalid opcode

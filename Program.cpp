@@ -130,6 +130,16 @@ uint8_t Program::getOpcodeValue(const std::string& mnemonic) {
     if (upper == "SETPRIORITYI") return static_cast<uint8_t>(Opcode::SETPRIORITYI);
     if (upper == "INPUT") return static_cast<uint8_t>(Opcode::INPUT);
     if (upper == "INPUTC") return static_cast<uint8_t>(Opcode::INPUTC);
+    if (upper == "MAPSHAREDMEM") return static_cast<uint8_t>(Opcode::MAP_SHARED_MEM);
+    if (upper == "ACQUIRELOCK") return static_cast<uint8_t>(Opcode::ACQUIRE_LOCK);
+    if (upper == "ACQUIRELOCKI") return static_cast<uint8_t>(Opcode::ACQUIRE_LOCK_I);
+    if (upper == "RELEASELOCK") return static_cast<uint8_t>(Opcode::RELEASE_LOCK);
+    if (upper == "RELEASELOCKI") return static_cast<uint8_t>(Opcode::RELEASE_LOCK_I);
+    if (upper == "SIGNALEVENT") return static_cast<uint8_t>(Opcode::SIGNAL_EVENT);
+    if (upper == "SIGNALEVENTI") return static_cast<uint8_t>(Opcode::SIGNAL_EVENT_I);
+    if (upper == "WAITEVENT") return static_cast<uint8_t>(Opcode::WAIT_EVENT);
+    if (upper == "WAITEVENTI") return static_cast<uint8_t>(Opcode::WAIT_EVENT_I);
+    if (upper == "TERMINATEPROCESS") return static_cast<uint8_t>(Opcode::TERMINATE_PROCESS);
     
     std::cerr << "Error: Unknown opcode '" << mnemonic << "'" << std::endl;
     return static_cast<uint8_t>(Opcode::INVALID);

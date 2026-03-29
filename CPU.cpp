@@ -113,7 +113,6 @@ void CPU::run() {
     running = true;
     
     while (running) {
-        // Check if we need a context switch
         if (needsContextSwitch()) {
             if (scheduler->allProcessesTerminated()) {
                 running = false;
@@ -121,7 +120,6 @@ void CPU::run() {
             }
             
             if (!scheduler->hasReadyProcess()) {
-                // No ready process, just tick sleeping ones
                 scheduler->updateSleepingProcesses();
                 clockTicks++;
                 continue;
@@ -592,7 +590,6 @@ void CPU::executeInstruction() {
             std::cin >> value;
             setRegister(regNum, value);
             registers[IP] += 9;
-            // Context switch after input
             scheduler->saveContext(this);
             PCB* current = scheduler->getCurrentProcess();
             if (current != nullptr) {
@@ -609,7 +606,6 @@ void CPU::executeInstruction() {
             std::cin >> c;
             setRegister(regNum, static_cast<int32_t>(c));
             registers[IP] += 9;
-            // Context switch after input
             scheduler->saveContext(this);
             PCB* current = scheduler->getCurrentProcess();
             if (current != nullptr) {
@@ -647,6 +643,117 @@ void CPU::executeInstruction() {
                 current->priority = priority;
             }
             registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::MAP_SHARED_MEM: {
+            int32_t regionReg = memoryManager->readInt(registers[IP] + 1);
+            int32_t destReg = memoryManager->readInt(registers[IP] + 5);
+            int32_t regionId = getRegister(regionReg);
+            PCB* current = scheduler->getCurrentProcess();
+            if (current != nullptr) {
+                int32_t addr = memoryManager->mapSharedMemory(regionId, &current->pageTable);
+                setRegister(destReg, addr);
+            }
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::ACQUIRE_LOCK: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t lockId = getRegister(regNum);
+            PCB* current = scheduler->getCurrentProcess();
+            if (current != nullptr) {
+                if (!scheduler->acquireLock(lockId, current->processId)) {
+                    current->state = ProcessState::WaitingLock;
+                    current->waitingOnLock = lockId;
+                    registers[IP] += 9;
+                    scheduler->contextSwitch(this);
+                    break;
+                }
+            }
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::ACQUIRE_LOCK_I: {
+            int32_t lockId = memoryManager->readInt(registers[IP] + 1);
+            PCB* current = scheduler->getCurrentProcess();
+            if (current != nullptr) {
+                if (!scheduler->acquireLock(lockId, current->processId)) {
+                    current->state = ProcessState::WaitingLock;
+                    current->waitingOnLock = lockId;
+                    registers[IP] += 9;
+                    scheduler->contextSwitch(this);
+                    break;
+                }
+            }
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::RELEASE_LOCK: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t lockId = getRegister(regNum);
+            PCB* current = scheduler->getCurrentProcess();
+            if (current != nullptr) {
+                scheduler->releaseLock(lockId, current->processId);
+            }
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::RELEASE_LOCK_I: {
+            int32_t lockId = memoryManager->readInt(registers[IP] + 1);
+            PCB* current = scheduler->getCurrentProcess();
+            if (current != nullptr) {
+                scheduler->releaseLock(lockId, current->processId);
+            }
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::SIGNAL_EVENT: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t eventId = getRegister(regNum);
+            scheduler->signalEvent(eventId);
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::SIGNAL_EVENT_I: {
+            int32_t eventId = memoryManager->readInt(registers[IP] + 1);
+            scheduler->signalEvent(eventId);
+            registers[IP] += 9;
+            break;
+        }
+        
+        case Opcode::WAIT_EVENT: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t eventId = getRegister(regNum);
+            PCB* current = scheduler->getCurrentProcess();
+            if (current != nullptr) {
+                current->waitingOnEvent = eventId;
+            }
+            scheduler->waitEvent(eventId);
+            registers[IP] += 9;
+            if (current != nullptr && current->state == ProcessState::WaitingEvent) {
+                scheduler->contextSwitch(this);
+            }
+            break;
+        }
+        
+        case Opcode::WAIT_EVENT_I: {
+            int32_t eventId = memoryManager->readInt(registers[IP] + 1);
+            PCB* current = scheduler->getCurrentProcess();
+            if (current != nullptr) {
+                current->waitingOnEvent = eventId;
+            }
+            scheduler->waitEvent(eventId);
+            registers[IP] += 9;
+            if (current != nullptr && current->state == ProcessState::WaitingEvent) {
+                scheduler->contextSwitch(this);
+            }
             break;
         }
         

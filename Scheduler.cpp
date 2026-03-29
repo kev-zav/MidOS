@@ -7,6 +7,16 @@ Scheduler::Scheduler(MemoryManager* mm) {
     memoryManager = mm;
     currentProcess = nullptr;
     nextProcessId = 1;
+    
+    // Initialize locks (all free)
+    for (int i = 0; i < NUM_LOCKS; i++) {
+        locks[i] = -1;
+    }
+    
+    // Initialize events (all non-signaled)
+    for (int i = 0; i < NUM_EVENTS; i++) {
+        events[i] = false;
+    }
 }
 
 Scheduler::~Scheduler() {
@@ -45,7 +55,6 @@ PCB* Scheduler::createProcess(Program& program, int priority) {
             delete pcb;
             return nullptr;
         }
-        // Expand page table if needed
         if (currentVirtualPage + i >= pcb->pageTable.size()) {
             pcb->pageTable.resize(currentVirtualPage + i + 1, -1);
         }
@@ -97,10 +106,10 @@ PCB* Scheduler::createProcess(Program& program, int priority) {
     pcb->processMemorySize = (currentVirtualPage + stackPagesNeeded) * PAGE_SIZE;
     
     // Set initial register values
-    pcb->registers[11] = 0;            // IP = 0
-    pcb->registers[12] = pcb->processId;  // PID
-    pcb->registers[13] = stackTop;     // SP
-    pcb->registers[14] = dataStart;    // GP (global data pointer)
+    pcb->registers[11] = 0;
+    pcb->registers[12] = pcb->processId;
+    pcb->registers[13] = stackTop;
+    pcb->registers[14] = dataStart;
     
     processes.push_back(pcb);
     
@@ -146,14 +155,12 @@ void Scheduler::loadContext(CPU* cpu) {
 }
 
 void Scheduler::contextSwitch(CPU* cpu) {
-    // Save current process state
     if (currentProcess != nullptr && currentProcess->state == ProcessState::Running) {
         saveContext(cpu);
         currentProcess->state = ProcessState::Ready;
         currentProcess->contextSwitches++;
     }
     
-    // Find next process
     PCB* next = findNextProcess();
     
     if (next == nullptr) {
@@ -181,6 +188,9 @@ void Scheduler::terminateCurrentProcess() {
     std::cout << "\nProcess " << currentProcess->processId << " terminated." << std::endl;
     std::cout << "  Clock cycles: " << currentProcess->clockCycles << std::endl;
     std::cout << "  Context switches: " << currentProcess->contextSwitches << std::endl;
+    
+    // Release all locks held by this process
+    releaseAllLocks(currentProcess->processId);
     
     // Free pages
     for (int i = 0; i < currentProcess->pageTable.size(); i++) {
@@ -262,4 +272,103 @@ void Scheduler::printStatistics() {
         std::cout << "  Context switches: " << p->contextSwitches << std::endl;
     }
     std::cout << "========================\n" << std::endl;
+}
+
+bool Scheduler::acquireLock(int lockId, int processId) {
+    if (lockId < 1 || lockId > NUM_LOCKS) {
+        return false;  // Invalid lock, no-op
+    }
+    
+    int index = lockId - 1;
+    
+    // If already held by this process, no-op (avoid deadlock)
+    if (locks[index] == processId) {
+        return true;
+    }
+    
+    // If free, acquire it
+    if (locks[index] == -1) {
+        locks[index] = processId;
+        return true;
+    }
+    
+    // Lock held by another process, block
+    return false;
+}
+
+bool Scheduler::releaseLock(int lockId, int processId) {
+    if (lockId < 1 || lockId > NUM_LOCKS) {
+        return false;  // Invalid lock, no-op
+    }
+    
+    int index = lockId - 1;
+    
+    // Only release if held by this process
+    if (locks[index] == processId) {
+        locks[index] = -1;
+        
+        // Wake up any process waiting on this lock
+        for (PCB* p : processes) {
+            if (p->state == ProcessState::WaitingLock && p->waitingOnLock == lockId) {
+                p->state = ProcessState::Ready;
+                break;  // Only wake one (highest priority will be scheduled)
+            }
+        }
+        return true;
+    }
+    
+    return false;  // Not held by this process, no-op
+}
+
+void Scheduler::releaseAllLocks(int processId) {
+    for (int i = 0; i < NUM_LOCKS; i++) {
+        if (locks[i] == processId) {
+            locks[i] = -1;
+            
+            // Wake up any process waiting on this lock
+            for (PCB* p : processes) {
+                if (p->state == ProcessState::WaitingLock && p->waitingOnLock == (i + 1)) {
+                    p->state = ProcessState::Ready;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void Scheduler::signalEvent(int eventId) {
+    if (eventId < 1 || eventId > NUM_EVENTS) {
+        return;  // Invalid event
+    }
+    
+    int index = eventId - 1;
+    events[index] = true;
+    
+    // Wake up all processes waiting on this event
+    for (PCB* p : processes) {
+        if (p->state == ProcessState::WaitingEvent && p->waitingOnEvent == eventId) {
+            p->state = ProcessState::Ready;
+            events[index] = false;  // Reset to non-signaled
+        }
+    }
+}
+
+void Scheduler::waitEvent(int eventId) {
+    if (eventId < 1 || eventId > NUM_EVENTS) {
+        return;  // Invalid event
+    }
+    
+    int index = eventId - 1;
+    
+    // If already signaled, consume it and continue
+    if (events[index]) {
+        events[index] = false;
+        return;
+    }
+    
+    // Block current process
+    if (currentProcess != nullptr) {
+        currentProcess->state = ProcessState::WaitingEvent;
+        currentProcess->waitingOnEvent = eventId;
+    }
 }

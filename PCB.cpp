@@ -28,6 +28,10 @@ PCB::PCB(int id) {
     clockCycles = 0;
     contextSwitches = 0;
     sleepCounter = 0;
+    
+    // Waiting info
+    waitingOnLock = 0;
+    waitingOnEvent = 0;
 }
 
 void PCB::resetQuantum() {

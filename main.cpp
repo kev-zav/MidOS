@@ -13,13 +13,17 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    cout << "MidOS - Module 3" << endl;
+    cout << "MidOS - Module 4" << endl;
     cout << "=================" << endl;
     
     // Create physical memory (64KB)
     int totalMemory = 65536;
     PhysicalMemory* physMem = new PhysicalMemory(totalMemory);
     MemoryManager* memMgr = new MemoryManager(physMem);
+    
+    // Initialize shared memory
+    memMgr->initSharedMemory();
+    
     Scheduler* scheduler = new Scheduler(memMgr);
     CPU* cpu = new CPU(memMgr, scheduler);
     

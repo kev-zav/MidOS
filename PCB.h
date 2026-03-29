@@ -41,7 +41,11 @@ public:
     // Statistics
     int clockCycles; 
     int contextSwitches;   
-    int sleepCounter;      
+    int sleepCounter;
+    
+    // Waiting info
+    int waitingOnLock;
+    int waitingOnEvent;
     
     // Memory management
     std::vector<int> pageTable; 
