@@ -141,6 +141,10 @@ uint8_t Program::getOpcodeValue(const std::string& mnemonic) {
     if (upper == "WAITEVENTI") return static_cast<uint8_t>(Opcode::WAIT_EVENT_I);
     if (upper == "TERMINATEPROCESS") return static_cast<uint8_t>(Opcode::TERMINATE_PROCESS);
     
+    // Heap allocation
+    if (upper == "ALLOC") return static_cast<uint8_t>(Opcode::ALLOC);
+    if (upper == "FREEMEMORY") return static_cast<uint8_t>(Opcode::FREE_MEMORY);
+    
     std::cerr << "Error: Unknown opcode '" << mnemonic << "'" << std::endl;
     return static_cast<uint8_t>(Opcode::INVALID);
 }

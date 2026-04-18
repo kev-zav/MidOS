@@ -4,6 +4,13 @@
 #include <vector>
 #include <cstdint>
 
+// Represents one chunk of heap memory for a process
+struct HeapBlock {
+    int startAddress;  // Virtual address where this block starts
+    int size;          // How many bytes this block is
+    bool isFree;       // true = available, false = in use
+};
+
 enum class ProcessState {
     New,
     Ready,
@@ -48,7 +55,10 @@ public:
     int waitingOnEvent;
     
     // Memory management
-    std::vector<int> pageTable; 
+    std::vector<int> pageTable;
+
+    // Heap allocation tracking, every alloc and free gets recorded here
+    std::vector<HeapBlock> heapAllocations;
     
     // Constructor
     PCB(int id);

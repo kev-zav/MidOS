@@ -8,12 +8,10 @@ Scheduler::Scheduler(MemoryManager* mm) {
     currentProcess = nullptr;
     nextProcessId = 1;
     
-    // Initialize locks (all free)
     for (int i = 0; i < NUM_LOCKS; i++) {
         locks[i] = -1;
     }
     
-    // Initialize events (all non-signaled)
     for (int i = 0; i < NUM_EVENTS; i++) {
         events[i] = false;
     }
@@ -32,22 +30,18 @@ PCB* Scheduler::createProcess(Program& program, int priority) {
     pcb->priority = priority;
     pcb->state = ProcessState::Ready;
     
-    // Set memory sizes
     pcb->codeSize = program.getSize();
     pcb->dataSize = 512;
     pcb->stackSize = 512;
-    pcb->heapStart = 0;
-    pcb->heapEnd = 512;
+    int heapSize = 512;
     
-    // Calculate pages needed
     int codePagesNeeded = (pcb->codeSize + PAGE_SIZE - 1) / PAGE_SIZE;
     int dataPagesNeeded = (pcb->dataSize + PAGE_SIZE - 1) / PAGE_SIZE;
-    int heapPagesNeeded = (pcb->heapEnd + PAGE_SIZE - 1) / PAGE_SIZE;
+    int heapPagesNeeded = (heapSize + PAGE_SIZE - 1) / PAGE_SIZE;
     int stackPagesNeeded = (pcb->stackSize + PAGE_SIZE - 1) / PAGE_SIZE;
     
     int currentVirtualPage = 0;
     
-    // Allocate CODE pages
     for (int i = 0; i < codePagesNeeded; i++) {
         int physPage = memoryManager->allocatePage();
         if (physPage == -1) {
@@ -61,7 +55,6 @@ PCB* Scheduler::createProcess(Program& program, int priority) {
         pcb->pageTable[currentVirtualPage + i] = physPage;
     }
     
-    // Load bytecode into memory using process page table
     memoryManager->setPageTable(&pcb->pageTable);
     const std::vector<uint8_t>& bytecode = program.getBytecode();
     for (size_t i = 0; i < bytecode.size(); i++) {
@@ -69,7 +62,6 @@ PCB* Scheduler::createProcess(Program& program, int priority) {
     }
     currentVirtualPage += codePagesNeeded;
     
-    // Allocate DATA pages
     int dataStart = currentVirtualPage * PAGE_SIZE;
     for (int i = 0; i < dataPagesNeeded; i++) {
         int physPage = memoryManager->allocatePage();
@@ -80,7 +72,6 @@ PCB* Scheduler::createProcess(Program& program, int priority) {
     }
     currentVirtualPage += dataPagesNeeded;
     
-    // Allocate HEAP pages
     pcb->heapStart = currentVirtualPage * PAGE_SIZE;
     for (int i = 0; i < heapPagesNeeded; i++) {
         int physPage = memoryManager->allocatePage();
@@ -89,10 +80,9 @@ PCB* Scheduler::createProcess(Program& program, int priority) {
         }
         pcb->pageTable[currentVirtualPage + i] = physPage;
     }
-    pcb->heapEnd = pcb->heapStart + 512;
+    pcb->heapEnd = pcb->heapStart + heapSize;
     currentVirtualPage += heapPagesNeeded;
     
-    // Allocate STACK pages
     int stackStart = currentVirtualPage * PAGE_SIZE;
     int stackTop = stackStart + pcb->stackSize;
     for (int i = 0; i < stackPagesNeeded; i++) {
@@ -105,7 +95,6 @@ PCB* Scheduler::createProcess(Program& program, int priority) {
     
     pcb->processMemorySize = (currentVirtualPage + stackPagesNeeded) * PAGE_SIZE;
     
-    // Set initial register values
     pcb->registers[11] = 0;
     pcb->registers[12] = pcb->processId;
     pcb->registers[13] = stackTop;
@@ -189,10 +178,8 @@ void Scheduler::terminateCurrentProcess() {
     std::cout << "  Clock cycles: " << currentProcess->clockCycles << std::endl;
     std::cout << "  Context switches: " << currentProcess->contextSwitches << std::endl;
     
-    // Release all locks held by this process
     releaseAllLocks(currentProcess->processId);
     
-    // Free pages
     for (int i = 0; i < currentProcess->pageTable.size(); i++) {
         if (currentProcess->pageTable[i] != -1) {
             memoryManager->freePage(currentProcess->pageTable[i]);
@@ -276,48 +263,43 @@ void Scheduler::printStatistics() {
 
 bool Scheduler::acquireLock(int lockId, int processId) {
     if (lockId < 1 || lockId > NUM_LOCKS) {
-        return false;  // Invalid lock, no-op
+        return false;
     }
     
     int index = lockId - 1;
     
-    // If already held by this process, no-op (avoid deadlock)
     if (locks[index] == processId) {
         return true;
     }
     
-    // If free, acquire it
     if (locks[index] == -1) {
         locks[index] = processId;
         return true;
     }
     
-    // Lock held by another process, block
     return false;
 }
 
 bool Scheduler::releaseLock(int lockId, int processId) {
     if (lockId < 1 || lockId > NUM_LOCKS) {
-        return false;  // Invalid lock, no-op
+        return false;
     }
     
     int index = lockId - 1;
     
-    // Only release if held by this process
     if (locks[index] == processId) {
         locks[index] = -1;
         
-        // Wake up any process waiting on this lock
         for (PCB* p : processes) {
             if (p->state == ProcessState::WaitingLock && p->waitingOnLock == lockId) {
                 p->state = ProcessState::Ready;
-                break;  // Only wake one (highest priority will be scheduled)
+                break;
             }
         }
         return true;
     }
     
-    return false;  // Not held by this process, no-op
+    return false;
 }
 
 void Scheduler::releaseAllLocks(int processId) {
@@ -325,7 +307,6 @@ void Scheduler::releaseAllLocks(int processId) {
         if (locks[i] == processId) {
             locks[i] = -1;
             
-            // Wake up any process waiting on this lock
             for (PCB* p : processes) {
                 if (p->state == ProcessState::WaitingLock && p->waitingOnLock == (i + 1)) {
                     p->state = ProcessState::Ready;
@@ -338,37 +319,77 @@ void Scheduler::releaseAllLocks(int processId) {
 
 void Scheduler::signalEvent(int eventId) {
     if (eventId < 1 || eventId > NUM_EVENTS) {
-        return;  // Invalid event
+        return;
     }
     
     int index = eventId - 1;
     events[index] = true;
     
-    // Wake up all processes waiting on this event
     for (PCB* p : processes) {
         if (p->state == ProcessState::WaitingEvent && p->waitingOnEvent == eventId) {
             p->state = ProcessState::Ready;
-            events[index] = false;  // Reset to non-signaled
+            events[index] = false;
         }
     }
 }
 
 void Scheduler::waitEvent(int eventId) {
     if (eventId < 1 || eventId > NUM_EVENTS) {
-        return;  // Invalid event
+        return;
     }
     
     int index = eventId - 1;
     
-    // If already signaled, consume it and continue
     if (events[index]) {
         events[index] = false;
         return;
     }
     
-    // Block current process
     if (currentProcess != nullptr) {
         currentProcess->state = ProcessState::WaitingEvent;
         currentProcess->waitingOnEvent = eventId;
     }
+}
+
+int Scheduler::allocateHeap(PCB* process, int size) {
+    if (size <= 0) return 0;
+
+    for (HeapBlock& block : process->heapAllocations) {
+        if (block.isFree && block.size >= size) {
+            block.isFree = false;
+            return block.startAddress;
+        }
+    }
+
+    int nextFree = process->heapStart;
+    for (HeapBlock& block : process->heapAllocations) {
+        int blockEnd = block.startAddress + block.size;
+        if (blockEnd > nextFree) {
+            nextFree = blockEnd;
+        }
+    }
+
+    if (nextFree + size > process->heapEnd) {
+        std::cerr << "Error: Heap full for process " << process->processId << std::endl;
+        return 0;
+    }
+
+    HeapBlock newBlock;
+    newBlock.startAddress = nextFree;
+    newBlock.size = size;
+    newBlock.isFree = false;
+    process->heapAllocations.push_back(newBlock);
+
+    return nextFree;
+}
+
+void Scheduler::freeHeap(PCB* process, int address) {
+    for (HeapBlock& block : process->heapAllocations) {
+        if (block.startAddress == address && !block.isFree) {
+            block.isFree = true;
+            return;
+        }
+    }
+    std::cerr << "Warning: Attempted to free invalid heap address " 
+              << address << " for process " << process->processId << std::endl;
 }

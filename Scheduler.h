@@ -59,6 +59,10 @@ public:
     // Events
     void signalEvent(int eventId);
     void waitEvent(int eventId);
+
+    // Heap allocation
+    int allocateHeap(PCB* process, int size);
+    void freeHeap(PCB* process, int address);
 };
 
 #endif

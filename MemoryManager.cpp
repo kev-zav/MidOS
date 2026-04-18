@@ -1,7 +1,6 @@
 #include "MemoryManager.h"
 #include <iostream>
 
-// Constructor
 MemoryManager::MemoryManager(PhysicalMemory* pm) {
     physicalMemory = pm;
     totalPhysicalPages = pm->getSize() / PAGE_SIZE;
@@ -22,35 +21,30 @@ int MemoryManager::translateAddress(int virtualAddress) {
     return (physicalPage * PAGE_SIZE) + offset;
 }
 
-// Read 1 byte
 uint8_t MemoryManager::read(int address) {
     int physical = translateAddress(address);
     if (physical == -1) return 0;
     return physicalMemory->read(physical);
 }
 
-// Write 1 byte
 void MemoryManager::write(int address, uint8_t value) {
     int physical = translateAddress(address);
     if (physical == -1) return;
     physicalMemory->write(physical, value);
 }
 
-// Read 4 bytes as integer
 int32_t MemoryManager::readInt(int address) {
     int physical = translateAddress(address);
     if (physical == -1) return 0;
     return physicalMemory->readInt(physical);
 }
 
-// Write 4 bytes
 void MemoryManager::writeInt(int address, int32_t value) {
     int physical = translateAddress(address);
     if (physical == -1) return;
     physicalMemory->writeInt(physical, value);
 }
 
-// Get size
 int MemoryManager::getSize() {
     return physicalMemory->getSize();
 }
@@ -136,7 +130,6 @@ int MemoryManager::mapSharedMemory(int regionId, std::vector<int>* processPageTa
     }
     
     int physicalPage = sharedMemoryPages[regionId - 1];
-    
     int virtualPage = processPageTable->size();
     processPageTable->resize(virtualPage + 1, -1);
     (*processPageTable)[virtualPage] = physicalPage;

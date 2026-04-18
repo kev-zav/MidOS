@@ -8,35 +8,30 @@
 using namespace std;
 
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        cout << "Please provide at least one program file." << endl;
+    if (argc < 3) {
+        cout << "Usage: MidOS <memory size> <program1.txt> ..." << endl;
         return 1;
     }
     
     cout << "MidOS - Module 4" << endl;
     cout << "=================" << endl;
     
-    // Create physical memory (64KB)
-    int totalMemory = 65536;
+    int totalMemory = std::stoi(argv[1]);
     PhysicalMemory* physMem = new PhysicalMemory(totalMemory);
     MemoryManager* memMgr = new MemoryManager(physMem);
     
-    // Initialize shared memory
     memMgr->initSharedMemory();
     
     Scheduler* scheduler = new Scheduler(memMgr);
     CPU* cpu = new CPU(memMgr, scheduler);
     
-    // Load each program as a process
-    for (int i = 1; i < argc; i++) {
+    for (int i = 2; i < argc; i++) {
         Program program;
         if (!program.loadFromFile(argv[i])) {
             cerr << "Failed to load program: " << argv[i] << endl;
             continue;
         }
-        
-        // Priority based on load order (first = highest)
-        int priority = 32 - i;
+        int priority = 32 - (i - 1);
         scheduler->createProcess(program, priority);
     }
     
@@ -49,7 +44,6 @@ int main(int argc, char* argv[]) {
     cout << "All processes completed." << endl;
     cout << "Total clock cycles: " << cpu->getClockTicks() << endl;
     
-    // Cleanup
     delete cpu;
     delete scheduler;
     delete memMgr;

@@ -2,7 +2,6 @@
 #include "Scheduler.h"
 #include <iostream>
 
-// Constructor - initializes CPU state
 CPU::CPU(MemoryManager* mm, Scheduler* sched) {
     memoryManager = mm;
     scheduler = sched;
@@ -17,7 +16,6 @@ CPU::CPU(MemoryManager* mm, Scheduler* sched) {
     running = false;
 }
 
-// Get value from register (r1-r14)
 int32_t CPU::getRegister(int regNum) {
     if (regNum < 1 || regNum > 14) {
         std::cerr << "Error: Invalid register number " << regNum << std::endl;
@@ -26,7 +24,6 @@ int32_t CPU::getRegister(int regNum) {
     return registers[regNum];
 }
 
-// Set value in register (r1-r14)
 void CPU::setRegister(int regNum, int32_t value) {
     if (regNum < 1 || regNum > 14) {
         std::cerr << "Error: Invalid register number " << regNum << std::endl;
@@ -35,71 +32,58 @@ void CPU::setRegister(int regNum, int32_t value) {
     registers[regNum] = value;
 }
 
-// Get instruction pointer
 int32_t CPU::getIP() {
     return registers[IP];
 }
 
-// Set instruction pointer
 void CPU::setIP(int32_t value) {
     registers[IP] = value;
 }
 
-// Get stack pointer
 int32_t CPU::getSP() {
     return registers[SP];
 }
 
-// Set stack pointer
 void CPU::setSP(int32_t value) {
     registers[SP] = value;
 }
 
-// Get sign flag
 bool CPU::getSignFlag() {
     return signFlag;
 }
 
-// Set sign flag
 void CPU::setSignFlag(bool value) {
     signFlag = value;
 }
 
-// Get zero flag
 bool CPU::getZeroFlag() {
     return zeroFlag;
 }
 
-// Set zero flag
 void CPU::setZeroFlag(bool value) {
     zeroFlag = value;
 }
 
-// Get clock tick count
 int CPU::getClockTicks() {
     return clockTicks;
 }
 
-// Increment clock by one tick
 void CPU::incrementClock() {
     clockTicks++;
     scheduler->tick();
 }
 
-// Push value onto stack
 void CPU::push(int32_t value) {
     registers[SP] -= 4;
     memoryManager->writeInt(registers[SP], value);
 }
 
-// Pop value from stack
 int32_t CPU::pop() {
     int32_t value = memoryManager->readInt(registers[SP]);
     registers[SP] += 4;
     return value;
 }
 
-// Check if context switch is needed
 bool CPU::needsContextSwitch() {
     PCB* current = scheduler->getCurrentProcess();
     if (current == nullptr) return true;
@@ -108,23 +92,21 @@ bool CPU::needsContextSwitch() {
     return false;
 }
 
-// Main execution loop - runs until all processes done
 void CPU::run() {
     running = true;
     
     while (running) {
+        if (scheduler->allProcessesTerminated()) {
+            running = false;
+            break;
+        }
+        
         if (needsContextSwitch()) {
-            if (scheduler->allProcessesTerminated()) {
-                running = false;
-                break;
-            }
-            
             if (!scheduler->hasReadyProcess()) {
                 scheduler->updateSleepingProcesses();
                 clockTicks++;
                 continue;
             }
-            
             scheduler->contextSwitch(this);
         }
         
@@ -136,14 +118,13 @@ void CPU::run() {
     }
 }
 
-// Execute single instruction at current IP
 void CPU::executeInstruction() {
     Opcode opcode = static_cast<Opcode>(memoryManager->read(registers[IP]));
     incrementClock();
     
     switch(opcode) {
         case Opcode::NOOP:
-            registers[IP]++;
+            registers[IP] += 9;
             break;
             
         case Opcode::EXIT:
@@ -155,10 +136,8 @@ void CPU::executeInstruction() {
             int32_t value = getRegister(regNum);
             value++;
             setRegister(regNum, value);
-            
             zeroFlag = (value == 0);
             signFlag = (value < 0);
-            
             registers[IP] += 9;
             break;
         }
@@ -215,10 +194,8 @@ void CPU::executeInstruction() {
             int32_t value = memoryManager->readInt(registers[IP] + 5);
             int32_t result = getRegister(regNum) + value;
             setRegister(regNum, result);
-            
             zeroFlag = (result == 0);
             signFlag = (result < 0);
-            
             registers[IP] += 9;
             break;
         }
@@ -228,13 +205,10 @@ void CPU::executeInstruction() {
             int32_t arg2 = memoryManager->readInt(registers[IP] + 5);
             int32_t srcReg1 = arg2 & 0xFFFF;
             int32_t srcReg2 = (arg2 >> 16) & 0xFFFF;
-            
             int32_t result = getRegister(srcReg1) + getRegister(srcReg2);
             setRegister(destReg, result);
-            
             zeroFlag = (result == 0);
             signFlag = (result < 0);
-            
             registers[IP] += 9;
             break;
         }
@@ -244,13 +218,10 @@ void CPU::executeInstruction() {
             int32_t arg2 = memoryManager->readInt(registers[IP] + 5);
             int32_t srcReg1 = arg2 & 0xFFFF;
             int32_t srcReg2 = (arg2 >> 16) & 0xFFFF;
-            
             int32_t result = getRegister(srcReg1) - getRegister(srcReg2);
             setRegister(destReg, result);
-            
             zeroFlag = (result == 0);
             signFlag = (result < 0);
-            
             registers[IP] += 9;
             break;
         }
@@ -260,13 +231,10 @@ void CPU::executeInstruction() {
             int32_t arg2 = memoryManager->readInt(registers[IP] + 5);
             int32_t srcReg1 = arg2 & 0xFFFF;
             int32_t srcReg2 = (arg2 >> 16) & 0xFFFF;
-            
             int32_t result = getRegister(srcReg1) * getRegister(srcReg2);
             setRegister(destReg, result);
-            
             zeroFlag = (result == 0);
             signFlag = (result < 0);
-            
             registers[IP] += 9;
             break;
         }
@@ -276,7 +244,6 @@ void CPU::executeInstruction() {
             int32_t arg2 = memoryManager->readInt(registers[IP] + 5);
             int32_t srcReg1 = arg2 & 0xFFFF;
             int32_t srcReg2 = (arg2 >> 16) & 0xFFFF;
-            
             int32_t divisor = getRegister(srcReg2);
             if (divisor == 0) {
                 std::cerr << "Error: Division by zero at IP " << registers[IP] << std::endl;
@@ -284,11 +251,9 @@ void CPU::executeInstruction() {
             } else {
                 int32_t result = getRegister(srcReg1) / divisor;
                 setRegister(destReg, result);
-                
                 zeroFlag = (result == 0);
                 signFlag = (result < 0);
             }
-            
             registers[IP] += 9;
             break;
         }
@@ -298,7 +263,6 @@ void CPU::executeInstruction() {
             int32_t arg2 = memoryManager->readInt(registers[IP] + 5);
             int32_t srcReg1 = arg2 & 0xFFFF;
             int32_t srcReg2 = (arg2 >> 16) & 0xFFFF;
-            
             int32_t divisor = getRegister(srcReg2);
             if (divisor == 0) {
                 std::cerr << "Error: Modulo by zero at IP " << registers[IP] << std::endl;
@@ -306,11 +270,9 @@ void CPU::executeInstruction() {
             } else {
                 int32_t result = getRegister(srcReg1) % divisor;
                 setRegister(destReg, result);
-                
                 zeroFlag = (result == 0);
                 signFlag = (result < 0);
             }
-            
             registers[IP] += 9;
             break;
         }
@@ -320,10 +282,8 @@ void CPU::executeInstruction() {
             int32_t arg2 = memoryManager->readInt(registers[IP] + 5);
             int32_t srcReg1 = arg2 & 0xFFFF;
             int32_t srcReg2 = (arg2 >> 16) & 0xFFFF;
-            
             int32_t result = getRegister(srcReg1) & getRegister(srcReg2);
             setRegister(destReg, result);
-            
             registers[IP] += 9;
             break;
         }
@@ -333,10 +293,8 @@ void CPU::executeInstruction() {
             int32_t arg2 = memoryManager->readInt(registers[IP] + 5);
             int32_t srcReg1 = arg2 & 0xFFFF;
             int32_t srcReg2 = (arg2 >> 16) & 0xFFFF;
-            
             int32_t result = getRegister(srcReg1) | getRegister(srcReg2);
             setRegister(destReg, result);
-            
             registers[IP] += 9;
             break;
         }
@@ -511,12 +469,9 @@ void CPU::executeInstruction() {
         case Opcode::CMPI: {
             int32_t reg = memoryManager->readInt(registers[IP] + 1);
             int32_t value = memoryManager->readInt(registers[IP] + 5);
-            
             int32_t result = getRegister(reg) - value;
-            
             zeroFlag = (result == 0);
             signFlag = (result < 0);
-            
             registers[IP] += 9;
             break;
         }
@@ -524,12 +479,9 @@ void CPU::executeInstruction() {
         case Opcode::CMPR: {
             int32_t reg1 = memoryManager->readInt(registers[IP] + 1);
             int32_t reg2 = memoryManager->readInt(registers[IP] + 5);
-            
             int32_t result = getRegister(reg1) - getRegister(reg2);
-            
             zeroFlag = (result == 0);
             signFlag = (result < 0);
-            
             registers[IP] += 9;
             break;
         }
@@ -756,6 +708,32 @@ void CPU::executeInstruction() {
             }
             break;
         }
+
+        case Opcode::ALLOC: {
+            int32_t sizeReg = memoryManager->readInt(registers[IP] + 1);
+            int32_t destReg = memoryManager->readInt(registers[IP] + 5);
+            int32_t size = getRegister(sizeReg);
+            PCB* current = scheduler->getCurrentProcess();
+            if (current != nullptr) {
+                int address = scheduler->allocateHeap(current, size);
+                setRegister(destReg, address);
+            } else {
+                setRegister(destReg, 0);
+            }
+            registers[IP] += 9;
+            break;
+        }
+
+        case Opcode::FREE_MEMORY: {
+            int32_t addrReg = memoryManager->readInt(registers[IP] + 1);
+            int32_t address = getRegister(addrReg);
+            registers[IP] += 9;
+            PCB* current = scheduler->getCurrentProcess();
+            if (current != nullptr) {
+                scheduler->freeHeap(current, address);
+            }
+            break;
+        }
         
         default:
             std::cerr << "Error: Unimplemented opcode " << static_cast<int>(opcode) 
@@ -765,7 +743,6 @@ void CPU::executeInstruction() {
     }
 }
 
-// Stop CPU execution
 void CPU::stop() {
     running = false;
 }
