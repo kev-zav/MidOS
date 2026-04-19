@@ -102,12 +102,20 @@ void CPU::run() {
         }
         
         if (needsContextSwitch()) {
-            if (!scheduler->hasReadyProcess()) {
+            PCB* current = scheduler->getCurrentProcess();
+
+            if (current != nullptr
+                && current->state == ProcessState::Running
+                && current->remainingQuantum <= 0
+                && !scheduler->hasReadyProcess()) {
+                current->resetQuantum();
+            } else if (!scheduler->hasReadyProcess()) {
                 scheduler->updateSleepingProcesses();
                 clockTicks++;
                 continue;
+            } else {
+                scheduler->contextSwitch(this);
             }
-            scheduler->contextSwitch(this);
         }
         
         if (scheduler->getCurrentProcess() == nullptr) {

@@ -13,7 +13,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    cout << "MidOS - Module 4" << endl;
+    cout << "MidOS" << endl;
     cout << "=================" << endl;
     
     int totalMemory = std::stoi(argv[1]);
