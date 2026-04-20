@@ -28,6 +28,7 @@ PCB::PCB(int id) {
     clockCycles = 0;
     contextSwitches = 0;
     sleepCounter = 0;
+    pageFaults = 0;
     
     // Waiting info
     waitingOnLock = 0;

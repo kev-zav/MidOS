@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <cstdint>
+#include "PageEntry.h"
 
 // Represents one chunk of heap memory for a process
 struct HeapBlock {
@@ -49,13 +50,14 @@ public:
     int clockCycles; 
     int contextSwitches;   
     int sleepCounter;
+    int pageFaults;
     
     // Waiting info
     int waitingOnLock;
     int waitingOnEvent;
     
     // Memory management
-    std::vector<int> pageTable;
+    std::vector<PageEntry> pageTable;
 
     // Heap allocation tracking, every alloc and free gets recorded here
     std::vector<HeapBlock> heapAllocations;

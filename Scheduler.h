@@ -63,6 +63,9 @@ public:
     // Heap allocation
     int allocateHeap(PCB* process, int size);
     void freeHeap(PCB* process, int address);
+
+    //Virtual memory
+    void recordPageFault();
 };
 
 #endif
