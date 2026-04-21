@@ -35,6 +35,8 @@ private:
     
 public:
     CPU(MemoryManager* mm, Scheduler* sched);
+
+    void dumpRegistersAndTerminate();
     
     // Register access
     int32_t getRegister(int regNum);

@@ -38,6 +38,7 @@ public:
     
     void sleepCurrentProcess(int cycles);
     void terminateCurrentProcess();
+    void terminateProcess(int targetPid);
     void blockCurrentProcess(ProcessState reason);
     void unblockProcess(int processId);
     

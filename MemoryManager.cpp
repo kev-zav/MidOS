@@ -10,6 +10,7 @@ MemoryManager::MemoryManager(PhysicalMemory* pm) {
     currentPageTable = nullptr;
     clockTick = 0;
     nextSwapOffset = 0;
+    invalidMemoryAccess = false;
 
     // Open the swap file (creates it if it doesn't exist)
     swapFileName = "swap.bin";
@@ -32,7 +33,7 @@ int MemoryManager::translateAddress(int virtualAddress, bool isWrite) {
     int offset = virtualAddress & OFFSET_MASK;
 
     if (currentPageTable == nullptr) {
-        std::cerr << "Error: No page table set for address " << virtualAddress << std::endl;
+        invalidMemoryAccess = true;
         return -1;
     }
 
@@ -154,7 +155,7 @@ int MemoryManager::evictPage() {
         if (entry.isValid && entry.physicalPage != -1) {
             // Don't evict shared memory pages
             bool isShared = false;
-            for (int i = 0; i < NUM_SHARED_PAGES; i++) {
+            for (int i = 0; i < NUM_SHARED_REGIONS; i++) {
                 if (entry.physicalPage == sharedMemoryPages[i]) {
                     isShared = true;
                     break;
@@ -294,15 +295,19 @@ void MemoryManager::printPageTable() {
 
 // Shared memory
 void MemoryManager::initSharedMemory() {
-    for (int i = 0; i < NUM_SHARED_PAGES; i++) {
+    for (int i = 0; i < NUM_SHARED_REGIONS; i++) {
+        int pagesNeeded = (SHARED_REGION_SIZE + PAGE_SIZE - 1) / PAGE_SIZE;
         sharedMemoryPages[i] = allocatePage();
+        for (int j = 1; j < pagesNeeded; j++) {
+            allocatePage();
+        }
         std::cout << "Shared memory region " << (i + 1)
                   << " at physical page " << sharedMemoryPages[i] << std::endl;
     }
 }
 
 int MemoryManager::mapSharedMemory(int regionId, std::vector<PageEntry>* processPageTable) {
-    if (regionId < 1 || regionId > NUM_SHARED_PAGES) {
+    if (regionId < 1 || regionId > NUM_SHARED_REGIONS) {
         std::cerr << "Error: Invalid shared memory region " << regionId << std::endl;
         return -1;
     }
@@ -322,6 +327,6 @@ int MemoryManager::mapSharedMemory(int regionId, std::vector<PageEntry>* process
 }
 
 int MemoryManager::getSharedPagePhysical(int regionId) {
-    if (regionId < 1 || regionId > NUM_SHARED_PAGES) return -1;
+    if (regionId < 1 || regionId > NUM_SHARED_REGIONS) return -1;
     return sharedMemoryPages[regionId - 1];
 }

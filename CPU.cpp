@@ -75,6 +75,13 @@ void CPU::incrementClock() {
 
 void CPU::push(int32_t value) {
     registers[SP] -= 4;
+    PCB* current = scheduler->getCurrentProcess();
+    if (current != nullptr && registers[SP] < current->heapEnd) {
+        std::cerr << "Error: Stack overflow in process " 
+                  << current->processId << std::endl;
+        dumpRegistersAndTerminate();
+        return;
+    }
     memoryManager->writeInt(registers[SP], value);
 }
 
@@ -123,12 +130,16 @@ void CPU::run() {
         }
         
         executeInstruction();
+        if (memoryManager->wasInvalidAccess()) {
+            dumpRegistersAndTerminate();
+        }
     }
 }
 
 void CPU::executeInstruction() {
     Opcode opcode = static_cast<Opcode>(memoryManager->read(registers[IP]));
     incrementClock();
+    memoryManager->clearInvalidAccess();
     
     switch(opcode) {
         case Opcode::NOOP:
@@ -344,8 +355,8 @@ void CPU::executeInstruction() {
         }
         
         case Opcode::JMP: {
-            int32_t address = memoryManager->readInt(registers[IP] + 1);
-            registers[IP] = address;
+            int32_t offset = memoryManager->readInt(registers[IP] + 1);
+            registers[IP] += offset;
             break;
         }
         
@@ -525,17 +536,17 @@ void CPU::executeInstruction() {
         }
         
         case Opcode::CALL: {
-            int32_t address = memoryManager->readInt(registers[IP] + 1);
+            int32_t offset = memoryManager->readInt(registers[IP] + 1);
             push(registers[IP] + 9);
-            registers[IP] = address;
+            registers[IP] += offset;
             break;
         }
-        
+
         case Opcode::CALLM: {
             int32_t regNum = memoryManager->readInt(registers[IP] + 1);
-            int32_t address = memoryManager->readInt(getRegister(regNum));
+            int32_t offset = memoryManager->readInt(getRegister(regNum));
             push(registers[IP] + 9);
-            registers[IP] = address;
+            registers[IP] += offset;
             break;
         }
         
@@ -742,6 +753,14 @@ void CPU::executeInstruction() {
             }
             break;
         }
+
+        case Opcode::TERMINATE_PROCESS: {
+            int32_t regNum = memoryManager->readInt(registers[IP] + 1);
+            int32_t targetPid = getRegister(regNum);
+            registers[IP] += 9;
+            scheduler->terminateProcess(targetPid);
+            break;
+        }
         
         default:
             std::cerr << "Error: Unimplemented opcode " << static_cast<int>(opcode) 
@@ -753,4 +772,19 @@ void CPU::executeInstruction() {
 
 void CPU::stop() {
     running = false;
+}
+
+void CPU::dumpRegistersAndTerminate() {
+    std::cerr << "Illegal memory access - Process " 
+              << registers[PID] << " terminated." << std::endl;
+    std::cerr << "Register dump:" << std::endl;
+    for (int i = 1; i <= 10; i++) {
+        std::cerr << "  r" << i << " = " << registers[i] << std::endl;
+    }
+    std::cerr << "  IP = " << registers[IP] << std::endl;
+    std::cerr << "  SP = " << registers[SP] << std::endl;
+    std::cerr << "  GP = " << registers[GP] << std::endl;
+    std::cerr << "  SignFlag = " << signFlag << std::endl;
+    std::cerr << "  ZeroFlag = " << zeroFlag << std::endl;
+    scheduler->terminateCurrentProcess();
 }

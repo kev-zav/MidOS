@@ -33,10 +33,12 @@ private:
     std::fstream swapFile;
     std::string swapFileName;
     int nextSwapOffset;
+    bool invalidMemoryAccess;
 
     // Shared memory pages (2 regions)
-    static const int NUM_SHARED_PAGES = 2;
-    int sharedMemoryPages[NUM_SHARED_PAGES];
+    static const int NUM_SHARED_REGIONS = 10;
+    static const int SHARED_REGION_SIZE = 1000;
+    int sharedMemoryPages[NUM_SHARED_REGIONS];
 
     // Translate virtual address to physical
     // isWrite=true marks the page dirty
@@ -71,6 +73,8 @@ public:
     void setPageTable(std::vector<PageEntry>* pt);
     void freePage(int physicalPage);
     void printPageTable();
+    bool wasInvalidAccess() { return invalidMemoryAccess; }
+    void clearInvalidAccess() { invalidMemoryAccess = false; }
     void setScheduler(Scheduler* s) { scheduler = s; }
 
     // Handle a page fault/brings a page back from disk into physical memory

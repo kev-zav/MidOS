@@ -23,19 +23,30 @@ int main(int argc, char* argv[]) {
     memMgr->initSharedMemory();
 
     Scheduler* scheduler = new Scheduler(memMgr);
-
-    // Wire the scheduler into the memory manager so page faults can be counted
     memMgr->setScheduler(scheduler);
 
     CPU* cpu = new CPU(memMgr, scheduler);
 
+    // Load idle process automatically with lowest priority and quantum of 5
+    Program idleProgram;
+    if (!idleProgram.loadFromFile("idle.txt")) {
+        cerr << "Failed to load idle process" << endl;
+        return 1;
+    }
+    PCB* idleProcess = scheduler->createProcess(idleProgram, 1);
+    if (idleProcess != nullptr) {
+        idleProcess->timeQuantum = 5;
+        idleProcess->remainingQuantum = 5;
+    }
+
+    // Load user programs
     for (int i = 2; i < argc; i++) {
         Program program;
         if (!program.loadFromFile(argv[i])) {
             cerr << "Failed to load program: " << argv[i] << endl;
             continue;
         }
-        int priority = 32 - (i - 1);
+        int priority = 32 - (i - 2);
         scheduler->createProcess(program, priority);
     }
 

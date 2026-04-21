@@ -59,8 +59,6 @@ PCB* Scheduler::createProcess(Program& program, int priority) {
     }
     currentVirtualPage += codePagesNeeded;
 
-    // PhysicalMemory initializes all bytes to 0 in its constructor
-    // so freshly allocated pages are already zeroed
     int dataStart = currentVirtualPage * PAGE_SIZE;
     for (int i = 0; i < dataPagesNeeded; i++) {
         int physPage = memoryManager->allocatePage();
@@ -91,7 +89,7 @@ PCB* Scheduler::createProcess(Program& program, int priority) {
     pcb->heapEnd = pcb->heapStart + heapSize;
     currentVirtualPage += heapPagesNeeded;
 
-    // --- Stack pages ---
+    // Stack Pages
     int stackStart = currentVirtualPage * PAGE_SIZE;
     int stackTop = stackStart + pcb->stackSize - 4;
     for (int i = 0; i < stackPagesNeeded; i++) {
@@ -109,10 +107,10 @@ PCB* Scheduler::createProcess(Program& program, int priority) {
     pcb->processMemorySize = totalVirtualPages * PAGE_SIZE;
 
     // Set initial register state per spec
-    pcb->registers[11] = 0;            // IP starts at 0
+    pcb->registers[11] = 0;
     pcb->registers[12] = pcb->processId;
-    pcb->registers[13] = stackTop;     // SP at top of stack
-    pcb->registers[14] = dataStart;    // r14 = start of global data
+    pcb->registers[13] = stackTop;
+    pcb->registers[14] = dataStart;
 
     processes.push_back(pcb);
     std::cout << "Process " << pcb->processId << " created with priority " << priority << std::endl;
@@ -168,6 +166,11 @@ void Scheduler::contextSwitch(CPU* cpu) {
 
 void Scheduler::sleepCurrentProcess(int cycles) {
     if (currentProcess == nullptr) return;
+    if (cycles == 0) {
+        currentProcess->sleepCounter = -1;
+        currentProcess->state = ProcessState::WaitingSleep;
+        return;
+    }
     currentProcess->sleepCounter = cycles;
     currentProcess->state = ProcessState::WaitingSleep;
 }
@@ -175,7 +178,6 @@ void Scheduler::sleepCurrentProcess(int cycles) {
 void Scheduler::terminateCurrentProcess() {
     if (currentProcess == nullptr) return;
 
-    // Print exit stats as required by spec
     std::cout << "\nProcess " << currentProcess->processId << " terminated." << std::endl;
     std::cout << "  Page faults:      " << currentProcess->pageFaults << std::endl;
     std::cout << "  Context switches: " << currentProcess->contextSwitches << std::endl;
@@ -183,7 +185,6 @@ void Scheduler::terminateCurrentProcess() {
 
     releaseAllLocks(currentProcess->processId);
 
-    // Free all physical pages this process was using
     for (PageEntry& entry : currentProcess->pageTable) {
         if (entry.isValid && entry.physicalPage != -1) {
             memoryManager->freePage(entry.physicalPage);
@@ -219,6 +220,7 @@ void Scheduler::tick() {
 void Scheduler::updateSleepingProcesses() {
     for (PCB* p : processes) {
         if (p->state == ProcessState::WaitingSleep) {
+            if (p->sleepCounter == -1) continue;
             p->sleepCounter--;
             if (p->sleepCounter <= 0) p->state = ProcessState::Ready;
         }
@@ -238,8 +240,10 @@ bool Scheduler::hasReadyProcess() {
 }
 
 bool Scheduler::allProcessesTerminated() {
-    for (PCB* p : processes)
+    for (PCB* p : processes) {
+        if (p->processId == 1) continue; // skip idle process
         if (p->state != ProcessState::Terminated) return false;
+    }
     return true;
 }
 
@@ -259,7 +263,6 @@ bool Scheduler::acquireLock(int lockId, int processId) {
     if (lockId < 1 || lockId > NUM_LOCKS) return false;
     int index = lockId - 1;
 
-    // Already held by this process - no-op, don't deadlock against yourself
     if (locks[index] == processId) return true;
 
     if (locks[index] == -1) {
@@ -290,7 +293,6 @@ bool Scheduler::releaseLock(int lockId, int processId) {
 
     locks[index] = -1;
 
-    // Wake the HIGHEST PRIORITY process waiting on this lock
     PCB* best = nullptr;
     for (PCB* p : processes) {
         if (p->state == ProcessState::WaitingLock && p->waitingOnLock == lockId) {
@@ -383,5 +385,24 @@ void Scheduler::freeHeap(PCB* process, int address) {
 void Scheduler::recordPageFault() {
     if (currentProcess != nullptr) {
         currentProcess->pageFaults++;
+    }
+}
+
+void Scheduler::terminateProcess(int targetPid) {
+    for (PCB* p : processes) {
+        if (p->processId == targetPid && p->state != ProcessState::Terminated) {
+            std::cout << "\nProcess " << p->processId << " terminated by another process." << std::endl;
+            std::cout << "  Page faults:      " << p->pageFaults << std::endl;
+            std::cout << "  Context switches: " << p->contextSwitches << std::endl;
+            std::cout << "  Clock cycles:     " << p->clockCycles << std::endl;
+            releaseAllLocks(p->processId);
+            for (PageEntry& entry : p->pageTable) {
+                if (entry.isValid && entry.physicalPage != -1) {
+                    memoryManager->freePage(entry.physicalPage);
+                }
+            }
+            p->state = ProcessState::Terminated;
+            return;
+        }
     }
 }
