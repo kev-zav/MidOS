@@ -1,3 +1,10 @@
+//***************************************************************
+// Kevin Zavala
+// Z2045582
+//
+// Handles virtual to physical address translation.
+// page faults, LRU eviction and shared memory.
+//***************************************************************
 #ifndef MEMORYMANAGER_H
 #define MEMORYMANAGER_H
 
@@ -12,7 +19,7 @@ class Scheduler;  // forward declaration
 class MemoryManager {
 private:
     PhysicalMemory* physicalMemory;
-    Scheduler* scheduler;  // used to record page faults on the current process
+    Scheduler* scheduler;  //  Records page faults on the current process
 
     static const int PAGE_SIZE = 256;
     static const int OFFSET_BITS = 8;
@@ -84,7 +91,7 @@ public:
     void tickClock() { clockTick++; }
     int getClockTick() { return clockTick; }
 
-    // Shared memory
+    // Shared Memory 
     void initSharedMemory();
     int mapSharedMemory(int regionId, std::vector<PageEntry>* processPageTable);
     int getSharedPagePhysical(int regionId);

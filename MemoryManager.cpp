@@ -1,3 +1,10 @@
+//***********************************************************************
+// Kevin Zavala
+// Z2045582
+//
+// Translates virtual addresses to physical, handles
+// page faults, LRU eviction, swap file, and shared memory.
+//**********************************************************************
 #include "MemoryManager.h"
 #include "Scheduler.h"
 #include <iostream>
@@ -46,7 +53,7 @@ int MemoryManager::translateAddress(int virtualAddress, bool isWrite) {
 
     PageEntry& entry = (*currentPageTable)[virtualPage];
 
-    // Page fault: page is mapped but not currently in physical memory
+    // Page fault  page is mapped but not currently in physical memory
     if (!entry.isValid) {
         handlePageFault(virtualPage, currentPageTable);
         if (!entry.isValid) {
@@ -59,7 +66,7 @@ int MemoryManager::translateAddress(int virtualAddress, bool isWrite) {
     // Update LRU timestamp on every access
     entry.lastUsed = clockTick;
 
-    // If this is a write, mark the page dirty
+    // If this is a write mark the page dirty
     if (isWrite) {
         entry.isDirty = true;
     }
@@ -117,7 +124,7 @@ void MemoryManager::handlePageFault(int virtualPage, std::vector<PageEntry>* pag
     }
 
     if (physPage == -1) {
-        // No free pages - need to evict someone
+        // No free pages, neeeds to evict someone
         physPage = evictPage();
         if (physPage == -1) {
             std::cerr << "Error: Cannot resolve page fault - no memory available" << std::endl;
@@ -125,14 +132,14 @@ void MemoryManager::handlePageFault(int virtualPage, std::vector<PageEntry>* pag
         }
     }
 
-    // If the page was previously swapped out, read it back in
+    // If the page was previously swapped out read it back in
     if (entry.diskOffset != -1) {
         readPageFromSwap(entry.diskOffset, physPage);
         std::cout << "[VM] Swapped in virtual page " << virtualPage
                   << " from disk offset " << entry.diskOffset
                   << " to physical page " << physPage << std::endl;
     } else {
-        // First time - zero it out
+        // First time zero it out
         for (int i = 0; i < PAGE_SIZE; i++) {
             physicalMemory->write(physPage * PAGE_SIZE + i, 0);
         }
@@ -153,7 +160,7 @@ int MemoryManager::evictPage() {
 
     for (PageEntry& entry : *currentPageTable) {
         if (entry.isValid && entry.physicalPage != -1) {
-            // Don't evict shared memory pages
+            // Dont evict shared memory pages
             bool isShared = false;
             for (int i = 0; i < NUM_SHARED_REGIONS; i++) {
                 if (entry.physicalPage == sharedMemoryPages[i]) {
@@ -173,7 +180,7 @@ int MemoryManager::evictPage() {
 
     if (lruPhysPage == -1 || victimEntry == nullptr) return -1;
 
-    // If dirty save to disk/If clean just discard it.
+    // If dirty save to disk/If clean just discard it
     if (victimEntry->isDirty) {
         if (victimEntry->diskOffset == -1) {
             victimEntry->diskOffset = nextSwapOffset++;

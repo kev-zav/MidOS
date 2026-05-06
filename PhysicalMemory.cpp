@@ -1,9 +1,17 @@
+//***************************************************************************************************
+// Kevin Zavala
+// Z2045582
+//
+// Simulates RAM as a byte array.
+// Provides bounds-checked read and write for
+// both single bytes and 4-byte integers.
+//***************************************************************************************************
 #include "PhysicalMemory.h"
 #include <iostream>
 
-// Constructor: creates memory of given size
+// Creates memory of given size
 PhysicalMemory::PhysicalMemory(int size) {
-    memory.resize(size, 0);  // Create memory array, initialize all to 0
+    memory.resize(size, 0);
 }
 
 // Read 1 byte from memory
@@ -24,7 +32,7 @@ void PhysicalMemory::write(int address, uint8_t value) {
     memory[address] = value;
 }
 
-// Read 4 bytes as an integer (little-endian)
+// Read 4 bytes as an integer
 int32_t PhysicalMemory::readInt(int address) {
     if (address < 0 || address + 3 >= memory.size()) {
         std::cerr << "Error: Invalid memory access at address " << address << std::endl;
@@ -39,7 +47,7 @@ int32_t PhysicalMemory::readInt(int address) {
     return value;
 }
 
-// Write 4 bytes from an integer (little-endian)
+// Write 4 bytes from an integer
 void PhysicalMemory::writeInt(int address, int32_t value) {
     if (address < 0 || address + 3 >= memory.size()) {
         std::cerr << "Error: Invalid memory write at address " << address << std::endl;

@@ -1,3 +1,11 @@
+//***********************************************************
+// Kevin Zavala
+// Z2045582
+//
+// Defines all 60 opcodes supported by the virtual CPU
+// including arithmetic, memory, jumps, I/O, and OS-level
+// instructions for locks, events, heap, and shared memory.
+//**********************************************************
 #ifndef OPCODE_H
 #define OPCODE_H
 

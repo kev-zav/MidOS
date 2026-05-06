@@ -1,3 +1,10 @@
+//**************************************************
+// Kevin Zavala
+// Z2045582
+//
+// Defines the CPU class with 14 registers, flags,
+// a system clock, and the main execution loop.
+//**************************************************
 #ifndef CPU_H
 #define CPU_H
 
@@ -10,8 +17,8 @@ class Scheduler;
 
 class CPU {
 private:
-    // 14 registers (r1-r14)
-    int32_t registers[15];  // Index 0 unused, r1-r14 use indices 1-14
+    // 14 registers
+    int32_t registers[15];
     
     // Special register indices
     static const int IP = 11;   // Instruction Pointer
@@ -59,14 +66,14 @@ public:
     void incrementClock();
     
     // Execution
-    void run();  // Main execution loop
-    void executeInstruction();  // Execute one instruction
-    void stop();  // Stop execution
+    void run();
+    void executeInstruction();
+    void stop();
     bool needsContextSwitch();
     
     // Helper methods
-    void push(int32_t value);  // Push to stack
-    int32_t pop();  // Pop from stack
+    void push(int32_t value);
+    int32_t pop(); 
 };
 
 #endif

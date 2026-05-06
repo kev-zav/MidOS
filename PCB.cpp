@@ -1,3 +1,12 @@
+//***************************************************************************************************
+// Kevin Zavala
+// Z2045582
+//
+// Initializes a new PCB with default values. Every process gets one 
+// PCB when it is created. Holds everything needed to pause and resume
+// a process during context switches.
+//*********************************************
+
 #include "PCB.h"
 
 PCB::PCB(int id) {

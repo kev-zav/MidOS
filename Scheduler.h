@@ -1,3 +1,11 @@
+//***************************************************************************************************
+// Kevin Zavala
+// Z2045582
+//
+// Defines the Scheduler class responsible for
+// process creation, context switching, priority
+// scheduling, locks, events, and heap allocation.
+//***************************************************************************************************
 #ifndef SCHEDULER_H
 #define SCHEDULER_H
 

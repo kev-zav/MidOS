@@ -1,3 +1,10 @@
+//***************************************************************************************************
+// Kevin Zavala
+// Z2045582
+//
+// The OS complete record of a process.
+// Stores all CPU related info
+//***************************************************************************************************
 #ifndef PCB_H
 #define PCB_H
 
@@ -5,10 +12,10 @@
 #include <cstdint>
 #include "PageEntry.h"
 
-// Represents one chunk of heap memory for a process
+// Tracks on heap allocation proc
 struct HeapBlock {
     int startAddress;  // Virtual address where this block starts
-    int size;          // How many bytes this block is
+    int size;          // size in ytes
     bool isFree;       // true = available, false = in use
 };
 

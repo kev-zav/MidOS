@@ -1,14 +1,21 @@
+//***********************************************
+// Kevin Zavala
+// Z2045582
+//
+// Defines one entry in a process's page table.
+// Maps a virtual page to a physical page in RAM
+//*********************************************
 #ifndef PAGEENTRY_H
 #define PAGEENTRY_H
 
 // Represents one entry in a virtual page table.
 struct PageEntry {
-    int physicalPage;   // Which physical page this maps to. -1 = not in memory.
-    bool isValid;       // true = page is currently in physical memory
-    bool isDirty;       // true = page has been written to since loaded (needs saving to disk)
-    int lastUsed;       // Clock tick when this page was last accessed (for LRU eviction)
-    int diskOffset;     // Where this page's data lives in the swap file (-1 = never swapped)
-    int processId;      // Which process owns this page (needed for eviction bookkeeping)
+    int physicalPage;   // Which physical page this maps to,, -1 = not in memory.
+    bool isValid;       // Is it currently in RAM
+    bool isDirty;       // Has this page been written to since it was loaded
+    int lastUsed;       // Clock tick when this page was last accessed
+    int diskOffset;     // Where this page's data lives in the swap file
+    int processId;      // Which process owns this page
 
     PageEntry() {
         physicalPage = -1;

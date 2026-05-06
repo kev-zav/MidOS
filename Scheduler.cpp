@@ -1,3 +1,10 @@
+//***************************************************************************************************
+// Kevin Zavala
+// Z2045582
+//
+// Manages process creation, context switching,
+// priority scheduling, locks, events, and heap.
+//***************************************************************************************************
 #include "Scheduler.h"
 #include "CPU.h"
 #include <iostream>

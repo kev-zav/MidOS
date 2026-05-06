@@ -1,3 +1,12 @@
+//***************************************************************************************************
+// Kevin Zavala
+// Z2045582
+// CSCI 480
+//
+// Reads asm files line by line, strips comments, parses 
+// opcodes and arguments, and encodes each instruction
+// as 9 bytes into a bytecode array for the CPU to execute.
+//***************************************************************************************************
 #include "Program.h"
 #include "Opcode.h"
 #include <fstream>

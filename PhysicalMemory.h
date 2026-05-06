@@ -1,3 +1,11 @@
+//***************************************************************************************************
+// Kevin Zavala
+// Z2045582
+//
+// Simulates raw RAM as a byte array.
+// Supports single byte and 4-byte integer
+// reads and writes with bounds checking.
+//***************************************************************************************************
 #ifndef PHYSICALMEMORY_H
 #define PHYSICALMEMORY_H
 
@@ -6,16 +14,16 @@
 
 class PhysicalMemory {
 private:
-    std::vector<uint8_t> memory;  // The actual memory (array of bytes)
+    std::vector<uint8_t> memory;  // The actual memory
     
 public:
-    PhysicalMemory(int size);  // Constructor - creates memory of given size
+    PhysicalMemory(int size);  // Creates memory of given size
     
-    uint8_t read(int address);              // Read 1 byte
-    void write(int address, uint8_t value); // Write 1 byte
+    uint8_t read(int address); 
+    void write(int address, uint8_t value);
     
-    int32_t readInt(int address);           // Read 4 bytes as an integer
-    void writeInt(int address, int32_t value); // Write 4 bytes
+    int32_t readInt(int address);
+    void writeInt(int address, int32_t value);
      
     int getSize();  // Get total memory size
 };

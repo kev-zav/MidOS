@@ -1,3 +1,11 @@
+//****************************************************************
+// Kevin Zavala
+// Z2045582
+//
+// Virtual Machine CPU Implementation
+// Runs the fetch-decode-execute cycle and handles
+// all instructions.
+//***************************************************************
 #include "CPU.h"
 #include "Scheduler.h"
 #include <iostream>
@@ -68,11 +76,13 @@ int CPU::getClockTicks() {
     return clockTicks;
 }
 
+// Increment global clock and notify scheduler to update counters
 void CPU::incrementClock() {
     clockTicks++;
     scheduler->tick();
 }
 
+// Push value onto stack, decrement SP, check for overflow
 void CPU::push(int32_t value) {
     registers[SP] -= 4;
     PCB* current = scheduler->getCurrentProcess();
@@ -85,12 +95,14 @@ void CPU::push(int32_t value) {
     memoryManager->writeInt(registers[SP], value);
 }
 
+// Pop value off stack, increment SP
 int32_t CPU::pop() {
     int32_t value = memoryManager->readInt(registers[SP]);
     registers[SP] += 4;
     return value;
 }
 
+// Returns true if the current process needs to be swapped out
 bool CPU::needsContextSwitch() {
     PCB* current = scheduler->getCurrentProcess();
     if (current == nullptr) return true;
@@ -99,6 +111,7 @@ bool CPU::needsContextSwitch() {
     return false;
 }
 
+// Main execution loop. Runs until all user processes terminate
 void CPU::run() {
     running = true;
     
@@ -115,8 +128,10 @@ void CPU::run() {
                 && current->state == ProcessState::Running
                 && current->remainingQuantum <= 0
                 && !scheduler->hasReadyProcess()) {
+                // Quantum expired but nothing ready so reset and continue
                 current->resetQuantum();
             } else if (!scheduler->hasReadyProcess()) {
+                // Nothing ready, tick clock to advance sleep timers
                 scheduler->updateSleepingProcesses();
                 clockTicks++;
                 continue;
@@ -130,6 +145,7 @@ void CPU::run() {
         }
         
         executeInstruction();
+        // If instruction caused illegal memory access dump and terminate
         if (memoryManager->wasInvalidAccess()) {
             dumpRegistersAndTerminate();
         }
@@ -141,6 +157,7 @@ void CPU::executeInstruction() {
     incrementClock();
     memoryManager->clearInvalidAccess();
     
+    // Decode and execute the current instruction
     switch(opcode) {
         case Opcode::NOOP:
             registers[IP] += 9;
@@ -149,7 +166,8 @@ void CPU::executeInstruction() {
         case Opcode::EXIT:
             scheduler->terminateCurrentProcess();
             break;
-            
+        
+        // Data Movement
         case Opcode::INCR: {
             int32_t regNum = memoryManager->readInt(registers[IP] + 1);
             int32_t value = getRegister(regNum);
@@ -208,6 +226,7 @@ void CPU::executeInstruction() {
             break;
         }
         
+        // Arithmetic
         case Opcode::ADDI: {
             int32_t regNum = memoryManager->readInt(registers[IP] + 1);
             int32_t value = memoryManager->readInt(registers[IP] + 5);
@@ -318,6 +337,7 @@ void CPU::executeInstruction() {
             break;
         }
         
+        // Output
         case Opcode::PRINTR: {
             int32_t regNum = memoryManager->readInt(registers[IP] + 1);
             int32_t value = getRegister(regNum);
@@ -354,6 +374,7 @@ void CPU::executeInstruction() {
             break;
         }
         
+        // Jumps
         case Opcode::JMP: {
             int32_t offset = memoryManager->readInt(registers[IP] + 1);
             registers[IP] += offset;
@@ -485,6 +506,7 @@ void CPU::executeInstruction() {
             break;
         }
         
+        // Comparison
         case Opcode::CMPI: {
             int32_t reg = memoryManager->readInt(registers[IP] + 1);
             int32_t value = memoryManager->readInt(registers[IP] + 5);
@@ -505,6 +527,7 @@ void CPU::executeInstruction() {
             break;
         }
         
+        // Stack
         case Opcode::PUSHR: {
             int32_t regNum = memoryManager->readInt(registers[IP] + 1);
             push(getRegister(regNum));
@@ -535,6 +558,7 @@ void CPU::executeInstruction() {
             break;
         }
         
+        // Subroutines
         case Opcode::CALL: {
             int32_t offset = memoryManager->readInt(registers[IP] + 1);
             push(registers[IP] + 9);
@@ -555,6 +579,7 @@ void CPU::executeInstruction() {
             break;
         }
         
+        // Input
         case Opcode::INPUT: {
             int32_t regNum = memoryManager->readInt(registers[IP] + 1);
             int32_t value;
@@ -587,6 +612,7 @@ void CPU::executeInstruction() {
             break;
         }
         
+        // OS Level Operations
         case Opcode::SLEEP: {
             int32_t regNum = memoryManager->readInt(registers[IP] + 1);
             int32_t cycles = getRegister(regNum);
@@ -630,6 +656,7 @@ void CPU::executeInstruction() {
             break;
         }
         
+        // Locks
         case Opcode::ACQUIRE_LOCK: {
             int32_t regNum = memoryManager->readInt(registers[IP] + 1);
             int32_t lockId = getRegister(regNum);
@@ -684,6 +711,7 @@ void CPU::executeInstruction() {
             break;
         }
         
+        // Events
         case Opcode::SIGNAL_EVENT: {
             int32_t regNum = memoryManager->readInt(registers[IP] + 1);
             int32_t eventId = getRegister(regNum);
@@ -728,6 +756,7 @@ void CPU::executeInstruction() {
             break;
         }
 
+        // Heap
         case Opcode::ALLOC: {
             int32_t sizeReg = memoryManager->readInt(registers[IP] + 1);
             int32_t destReg = memoryManager->readInt(registers[IP] + 5);
